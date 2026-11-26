@@ -198,7 +198,7 @@ export class Vehicle {
       if (TdF > 0 && kF > maxK) TdF *= Math.max(0.15, 1 - (kF - maxK) * 4);
     }
     const absOn = assist > 0;
-    const hbT = hb ? 2400 * (1 - assist * 0.45) : 0;   // handbrake: strong but not a dead lock with assist
+    const hbT = hb ? 1500 * (1 - assist * 0.4) : 0;   // handbrake: strong but not a dead lock with assist
     const fr = axle(this.wF, Fzf, muF, tanAF, TdF, brakeT * bias, IF, split > 0, absOn);
     const rr = axle(this.wR, Fzr, muR, tanAR, TdR, brakeT * (1 - bias) + hbT, IR, split < 1, absOn && !hb);
     this.wF = fr.w; this.wR = rr.w;
@@ -214,8 +214,9 @@ export class Vehicle {
     const ab = Math.abs(beta);
     if (assist > 0 && u > 6) {
       // soft angle limit around 50° and yaw damping once the car is clearly sliding
-      if (ab > 0.7) Mz += Math.sign(beta) * (ab - 0.7) * this.inertia * 16 * assist;
-      if (ab > 0.15) Mz -= this.r * this.inertia * (0.25 + Math.max(0, ab - 0.6) * 2.5) * assist * Math.min(1, (ab - 0.15) * 3);
+      // beta grows while the nose rotates away from the travel direction: r and beta have opposite signs
+      const growing = this.r * beta < 0;
+      if (ab > 0.15) Mz -= this.r * this.inertia * (growing ? 0.6 + Math.max(0, ab - 0.42) * 14 : 0.35) * assist * Math.min(1, (ab - 0.15) * 3);
       // keep a little momentum in a held drift so slides feel rewarding rather than draggy
       if (ab > 0.12 && throttle > 0.3) Fx += m * 1.1 * assist * throttle * Math.min(1, (ab - 0.12) * 3);
     }
@@ -251,8 +252,8 @@ export class Vehicle {
     this.driftAngle = speed > 5 ? beta : 0;
     this.wheelRotF += this.wF * dt; this.wheelRotR += this.wR * dt; this.wheelRot = this.wheelRotR;
     // visual suspension
-    const k = 95 + this.susp * 30 + (s.setup?.stiffness || 0) * 30, c = 11 + this.susp * 2;
-    const pitchT = -this.axLag * 0.009, rollT = this.ay * 0.011 * (1 - this.susp * 0.15);
+    const k = 95 + this.susp * 30 + (s.setup?.stiffness || 0) * 30, c = 15 + this.susp * 2;
+    const pitchT = Math.max(-0.05, Math.min(0.05, -this.axLag * 0.006)), rollT = Math.max(-0.055, Math.min(0.055, this.ay * 0.0065 * (1 - this.susp * 0.15)));
     this.pitchV += ((pitchT - this.pitch) * k - this.pitchV * c) * dt; this.pitch += this.pitchV * dt;
     this.rollV += ((rollT - this.roll) * k - this.rollV * c) * dt; this.roll += this.rollV * dt;
 

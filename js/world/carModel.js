@@ -454,7 +454,7 @@ export function createCar(spec, dressIn = {}, opts = {}) {
       root.position.set(v.x, surf.y, v.z);
       root.rotation.order = 'YXZ';
       root.rotation.set(-surf.pitch, v.yaw, surf.roll);
-      body.rotation.x = v.pitch; body.rotation.z = -v.roll;
+      body.rotation.x = v.pitch; body.rotation.z = v.roll; // ay>0 (turning left) → right side dips (leans outward)
       body.position.y = -drop - Math.abs(v.pitch) * 0.3;
       for (const w of wheels) { w.spin.rotation.x = w.front ? (v.wheelRotF ?? v.wheelRot) : (v.wheelRotR ?? v.wheelRot); if (w.front) w.steer.rotation.y = v.steer; }
     },
