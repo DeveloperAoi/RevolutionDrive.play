@@ -9,7 +9,16 @@
 // While this is null the game runs fully offline (GUEST PLAY) and ACCOUNT PLAY shows
 // "server not configured".
 // ─────────────────────────────────────────────────────────────────────────────
-export const firebaseConfig = null;
+export const firebaseConfig = {
+  apiKey: "AIzaSyAFAILPYUkX23QidvK8SuffC6CufAJxfMU",
+  authDomain: "revolution-drive-39f5a.firebaseapp.com",
+  projectId: "revolution-drive-39f5a",
+  storageBucket: "revolution-drive-39f5a.firebasestorage.app",
+  messagingSenderId: "424366203143",
+  appId: "1:424366203143:web:12aeb0cd3f69f439c325a2",
+  measurementId: "G-JP138B9LMY",
+  // databaseURL: Realtime Database 作成後に追加(オンライン対戦用)
+};
 /* example:
 export const firebaseConfig = {
   apiKey: "AIza...",
