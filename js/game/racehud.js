@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { Tacho, fmt, fmtDelta } from './hud.js';
 import { avatarSVG, rankBadge, esc } from '../ui/core.js';
+import { Audio } from '../audio/audio.js';
 
 const $ = (s, r) => r.querySelector(s);
 
@@ -28,7 +29,7 @@ export function cornersAhead(track, s, range = 260) {
       let ang = 0, e = d; const sg = Math.sign(k);
       while (e < d + 400) { const kk = track.pointAt(s + e).k; if (Math.abs(kk) < TH * 0.6 || Math.sign(kk) !== sg) break; ang += kk * 4; e += 4; }
       const deg = Math.abs(ang) * 57.3;
-      if (deg > 25) out.push({ dist: d, dir: sg, kind: deg > 130 ? 'hairpin' : deg > 70 ? 'sharp' : 'curve', deg });
+      if (deg > 25) out.push({ dist: d, dir: sg, kind: deg > 130 ? 'hairpin' : deg > 70 ? 'sharp' : 'curve', deg, len: e - d });
       d = e + 8;
     } else d += 4;
   }
@@ -161,6 +162,32 @@ export class RaceHUD {
       sg.innerHTML = cs[0] && cs[0].dist < 170 ? `${cs[1] ? `<div class="nx">${signSVG(cs[1].kind, cs[1].dir, 56)}</div>` : ''}<div class="mn">${signSVG(cs[0].kind, cs[0].dir, 130)}</div>` : '';
     }
     sg.classList.toggle('near', !!(cs[0] && cs[0].dist < 60));
+    // guide SE, synchronised with the sign animation
+    const shown = cs[0] && cs[0].dist < 170 ? cs[0] : null;
+    if (r.state === 'race' && key !== this.seKey) {
+      const prevMain = this.seMain;
+      if (shown) {
+        const chain = cs[1] && cs[1].dist - (shown.dist + shown.len) < 70;
+        if (!prevMain || prevMain.dist < shown.dist - 40 || prevMain.kind !== shown.kind || prevMain.dir !== shown.dir) {
+          if (prevMain && prevMain.dir !== shown.dir && prevMain.dist < 30) Audio.guideSE('switch', -shown.dir);
+          Audio.guideSE(shown.kind, -shown.dir);
+          if (chain) setTimeout(() => Audio.guideSE('chain', -shown.dir), 180);
+          sg.classList.toggle('chain', !!chain);
+        } else Audio.guideSE('update', -shown.dir);
+      }
+      this.seMain = shown; this.seKey = key;
+    }
+    // slope indicator (uphill / downhill ahead)
+    const sNow = ((p.prog % r.track.length) + r.track.length) % r.track.length;
+    const g = (r.track.pointAt(sNow + 90).y - r.track.pointAt(sNow + 20).y) / 70;
+    const slope = g > 0.055 ? 'up' : g < -0.055 ? 'down' : null;
+    if (slope !== this.slope) {
+      this.slope = slope;
+      const sl = $('.rh-slope', root);
+      sl.innerHTML = slope ? `<b>${slope === 'up' ? '⬈ 上り' : '⬊ 下り'}</b><span>${Math.round(Math.abs(g) * 100)}%</span>` : '';
+      sl.className = 'rh-slope ' + (slope || '');
+      if (slope && r.state === 'race') Audio.guideSE(slope);
+    }
     // minimap (rotates with heading)
     this.drawMap(p);
     const remain = Math.max(0, r.totalLen - p.prog) / 1000;

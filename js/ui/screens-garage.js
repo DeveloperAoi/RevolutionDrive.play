@@ -7,7 +7,7 @@ import { Audio } from '../audio/audio.js';
 import { Save, rankOf } from '../core/save.js';
 import * as Net from '../net/firebase.js';
 import { CARS, MAKERS, carById, buildSpec, carStats, topSpeedKmh, MAX_GARAGE, RIDE_HEIGHTS } from '../data/cars.js';
-import { AERO, PART_BRANDS, isCompatible, FINISHES, PALETTE, VINYL_SLOTS, VINYL_NAMES, WHEEL_BRANDS, WHEEL_DESIGNS, WHEEL_COLORS, WHEEL_SIZES, WHEEL_OFFSETS, TIRE_LOOKS, METERS, METER_BGS, METER_TEXT, METER_LIGHT, TUNE_CATS, TUNE_PARTS_V2, TUNE_MAX, tuneCost, tuneTotal, tuneStyle, normalizeCar } from '../data/custom.js';
+import { partPrice, TIRE_WIDTHS, AERO, PART_BRANDS, isCompatible, FINISHES, PALETTE, VINYL_SLOTS, VINYL_NAMES, WHEEL_BRANDS, WHEEL_DESIGNS, WHEEL_COLORS, WHEEL_SIZES, WHEEL_OFFSETS, TIRE_LOOKS, METERS, METER_BGS, METER_TEXT, METER_LIGHT, TUNE_CATS, TUNE_PARTS_V2, TUNE_MAX, tuneCost, tuneTotal, tuneStyle, normalizeCar } from '../data/custom.js';
 import { COURSES, courseById } from '../data/courses.js';
 import { Track } from '../world/track.js';
 import { drawCourseMap, fmt } from '../game/hud.js';
@@ -236,14 +236,14 @@ UI.register({
 UI.register({
   id: 'garage',
   build(n) {
-    n.innerHTML = `<div class="rotzone" style="position:absolute;left:640px;right:40px;top:120px;bottom:440px;z-index:4"></div>
-      ${backdrop([[700, 110], [1890, 110], [1890, 640], [620, 640]], { tone: '#ddd6c4' })}
-      <div class="af-title" style="left:50%;top:20px;transform:translateX(-50%);text-align:center"><div class="t">GARAGE</div><div class="timer af-tm g-tm" style="text-align:center"><b>3:00</b></div></div>
+    n.innerHTML = `<div class="rotzone" style="position:absolute;left:640px;right:40px;top:80px;bottom:440px;z-index:4"></div>
+      ${backdrop([[760, 0], [1920, 0], [1920, 1080], [440, 1080]], { tone: '#ddd6c4', frame: false })}
+      <div class="af-title" style="left:50%;top:20px;transform:translateX(-50%);text-align:center"><div class="t">CAR CUSTOMIZE</div><div class="timer af-tm g-tm" style="text-align:center"><b>3:00</b></div></div>
       <div class="pp"></div>
       <div class="g-list" style="position:absolute;left:0;top:215px;width:620px;z-index:5;display:flex;flex-direction:column;gap:6px"></div>
       <div class="icard g-info" style="right:40px;top:140px;width:600px"></div>
       <div class="hintbar g-hint" style="top:640px">メニューを選んでください(↑↓で車両切替)</div>
-      <div class="menutiles g-menu" style="top:695px;display:flex;gap:8px"></div>
+      <div class="strip g-menu" style="top:690px"></div>
       <div class="cbx"></div>${logoMark()}${keyGuide([['ud', '車両'], ['lr', 'メニュー'], ['ok', '決定'], ['back', '戻る']])}`;
   },
   enter(params = {}) {
@@ -251,10 +251,10 @@ UI.register({
     $('.pp', this.el).innerHTML = plate(); $('.cbx', this.el).innerHTML = consoleBox();
     this.ci = Math.max(0, Save.profile.cars.findIndex(c => c.uid === Save.profile.activeCar));
     this.render();
-    const items = [['🔑 使用登録', 'use', 'y'], ['ドレスアップ', 'dress', 'b'], ['ホイール', 'wheel', 'b'], ['メーター', 'meter', 'b'], ['チューニング', 'tune', 'b'], ['車両追加', 'add', 'k'], ['削除', 'del', 'k'], ['前に戻る', 'back', 'k']];
+    const items = [['使用登録', 'use', 'Car Select', 'key'], ['カーカスタマイズ', 'dress', 'Car Customize', 'car'], ['ホイール', 'wheel', 'Wheel', 'wheel'], ['メーター', 'meter', 'Meter', 'meter'], ['チューニング', 'tune', 'Tuning', 'wrench'], ['IN-STORE', 'store', 'Parts Shop', 'bag'], ['車両追加', 'add', 'Car Add', 'plus'], ['車両削除', 'del', 'Delete', 'trash'], ['モード選択', 'back', 'Mode Select', 'back']];
     const m = $('.g-menu', this.el);
-    m.innerHTML = items.map(([l, a, c]) => `<div class="mtile ${c}" data-a="${a}" style="width:218px;height:130px;font-size:26px">${l}</div>`).join('');
-    const tiles = $$('.mtile', m);
+    m.innerHTML = '<i class="mk l"></i>' + items.map(([l, a, en, ic]) => `<div class="scard hub" data-a="${a}" style="width:190px"><div class="en">${en}</div><div class="ic">${hubIcon(ic)}</div><div class="lab" style="background:linear-gradient(90deg,#0a5ac0,#2aa8ff)">${l}</div></div>`).join('') + '<i class="mk r"></i>';
+    const tiles = $$('.scard', m);
     this.mf = new Focus(tiles, { axis: 'h', index: params.menu || 0, onSelect: (k, t) => this.run(t.dataset.a) });
     const ap = this.mf.apply.bind(this.mf); this.mf.apply = () => { ap(); tiles.forEach((t, k) => t.classList.toggle('sel', k === this.mf.i)); }; this.mf.apply();
     startClock($('.g-tm', this.el), 180, async () => { await Save.persistNow('timeout'); toast('時間切れ — データを保存しました'); UI.go('mode'); });
@@ -290,6 +290,7 @@ UI.register({
     if (a === 'wheel') { Audio.ui('ok'); return UI.go('wheel', { uid: c.uid, back: 'garage' }); }
     if (a === 'meter') { Audio.ui('ok'); return UI.go('meter', { uid: c.uid }); }
     if (a === 'tune') { Audio.ui('ok'); return UI.go('tuning', { uid: c.uid }); }
+    if (a === 'store') { Audio.ui('ok'); return UI.go('store', { uid: c.uid }); }
     if (a === 'del') {
       if (p.cars.length <= 1) { Audio.ui('error'); return dialog.alert('削除できません', '最低1台の車両が必要です。'); }
       if (!(await dialog.confirm('車両の削除', `<b>${esc(c.name)}</b>(${tuneLevel(c)})を削除しますか?<br><span style="color:#ff6a6a">チューニング・ドレスアップも失われます。元に戻せません。</span>`, '削除する', 'やめる'))) return;
@@ -352,11 +353,13 @@ UI.register({
     if (k === 'color') return PALETTE.map(([nm, hex]) => ({ html: `<div class="sw" style="background:${hex}"></div><div class="cap">${nm}</div>`, value: hex, desc: `ボディカラー:${nm}`, cur: d.color.hex === hex }));
     if (k === 'finish') return FINISHES.map(f => ({ html: `<div style="text-align:center"><div class="sw" style="margin:auto;background:${d.color.hex};${f.id === 'matte' ? 'box-shadow:none' : f.id === 'pearl' ? 'background-image:linear-gradient(135deg,rgba(255,255,255,.5),rgba(180,200,255,.3),rgba(255,220,255,.4))' : ''}"></div><div style="font-size:22px;font-style:italic;color:#333">${f.name}</div></div>`, value: f.id, desc: `塗装仕上げ:${f.jp}`, cur: d.color.finish === f.id }));
     if (k.startsWith('v_')) {
-      const slot = k.slice(2); return VINYL_SLOTS[slot].designs.map(ds => ({ html: `<div style="font-family:var(--jp);font-weight:900;font-size:26px;color:#222;text-align:center">${ds === 'none' ? 'なし' : VINYL_NAMES[ds]}<small style="display:block;font-size:14px;color:#888;font-family:var(--font)">${ds === 'none' ? 'Normal' : 'ORIGINAL VINYL'}</small></div>`, value: ds, desc: `${VINYL_SLOTS[slot].jp}:${VINYL_NAMES[ds]}${ds !== 'none' ? ' — 決定で位置・サイズ・角度を調整' : ''}`, cur: d.vinyl[slot].d === ds }));
+      const slot = k.slice(2); return VINYL_SLOTS[slot].designs.map(ds => ({ locked: Save.owns('vinyl', ds) ? null : `IN-STOREで購入 ¥${partPrice('vinyl', ds).toLocaleString()}`, html: `<div style="font-family:var(--jp);font-weight:900;font-size:26px;color:#222;text-align:center">${ds === 'none' ? 'なし' : VINYL_NAMES[ds]}<small style="display:block;font-size:14px;color:#888;font-family:var(--font)">${ds === 'none' ? 'Normal' : 'ORIGINAL VINYL'}</small></div>`, value: ds, desc: `${VINYL_SLOTS[slot].jp}:${VINYL_NAMES[ds]}${ds !== 'none' ? ' — 決定で位置・サイズ・角度を調整' : ''}`, cur: d.vinyl[slot].d === ds }));
     }
     if (k.startsWith('a_')) {
       const cat = k.slice(2); const def = AERO[cat]; const curV = cat === 'muffler' ? d.muffler : d.aero[cat];
-      return def.list.map(it => ({ html: brandMark(it.brand), value: it.id, desc: `${PART_BRANDS[it.brand].name} ${it.name}`, cur: curV === it.id, locked: isCompatible(style, cat, it.id) ? null : 'この車種には装着不可' }));
+      const turboOK = !def.turboOnly || this.base.sound.turbo;
+      return def.list.map(it => ({ html: brandMark(it.brand), value: it.id, desc: `${PART_BRANDS[it.brand].name} ${it.name}`, cur: curV === it.id,
+        locked: !isCompatible(style, cat, it.id) || (!turboOK && it.id) ? (turboOOK(turboOK, it.id)) : Save.owns(cat, it.id) ? null : `IN-STOREで購入 ¥${partPrice(cat, it.id).toLocaleString()}` }));
     }
     if (k === 'wheel') { const f = d.wheel.f; const des = WHEEL_DESIGNS.find(w => w.id === f.design); return [{ html: `<canvas width="260" height="260"></canvas>`, value: 'open', desc: `${des.brand ? WHEEL_BRANDS[des.brand].name : 'Normal'} ${des.name} ${f.size}inch — 決定でホイールカスタマイズへ`, cur: true, wheel: f }]; }
     if (k === 'height') return RIDE_HEIGHTS.map(h => ({ html: `<div style="font-size:26px;font-style:italic;color:#222;text-align:center">${h.name}</div>`, value: h.id, desc: `車高:${h.name}`, cur: (d.height || 0) === h.id }));
@@ -381,7 +384,7 @@ UI.register({
     else if (k.startsWith('a_')) d.aero[k.slice(2)] = val;
     else if (k === 'height') d.height = val;
   },
-  preview() { const o = this.opts[this.sel.i]; if (!o || o.value === 'open') return this.descr(); if (o.locked) { this.descr(); return; } this.apply(o.value); this.redraw(); this.descr(); },
+  preview() { const o = this.opts[this.sel.i]; if (!o || o.value === 'open') return this.descr(); if (o.locked && !/IN-STORE/.test(o.locked)) { this.descr(); return; } this.apply(o.value); this.redraw(); this.descr(); },
   // Enter: equip the selected part (it becomes 装着中 and is saved)
   equip() {
     const o = this.opts[this.sel.i]; const k = DRESS_CATS[this.ci].k;
@@ -447,6 +450,20 @@ UI.register({
   },
 });
 
+function hubIcon(k) {
+  const P = { key: '<circle cx="34" cy="40" r="14" fill="none" stroke="#fff" stroke-width="7"/><path d="M46 40 H88 M74 40 V54 M84 40 V50" stroke="#fff" stroke-width="7"/>',
+    car: '<path d="M14 58 L22 42 L44 38 L56 26 L84 26 L96 40 L108 44 L108 58 Z" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/><circle cx="38" cy="60" r="8" fill="#fff"/><circle cx="88" cy="60" r="8" fill="#fff"/>',
+    wheel: '<circle cx="60" cy="42" r="28" fill="none" stroke="#fff" stroke-width="7"/><circle cx="60" cy="42" r="6" fill="#fff"/><path d="M60 16 V36 M60 48 V68 M34 42 H54 M66 42 H86" stroke="#fff" stroke-width="5"/>',
+    meter: '<path d="M24 60 A36 36 0 1 1 96 60" fill="none" stroke="#fff" stroke-width="7"/><path d="M60 58 L80 30" stroke="#ff5a5a" stroke-width="6" stroke-linecap="round"/><circle cx="60" cy="58" r="6" fill="#fff"/>',
+    wrench: '<path d="M30 70 L66 34 A16 16 0 1 1 82 18 L72 28 L78 34 L88 24 A16 16 0 0 1 72 46 L36 82 Z" fill="#fff" transform="translate(4,-10)"/>',
+    bag: '<rect x="28" y="30" width="64" height="44" rx="6" fill="none" stroke="#fff" stroke-width="7"/><path d="M44 30 V22 A16 16 0 0 1 76 22 V30" fill="none" stroke="#fff" stroke-width="6"/><text x="60" y="64" font-size="22" text-anchor="middle" fill="#fff" font-family="Arial Black">¥</text>',
+    plus: '<circle cx="60" cy="42" r="28" fill="none" stroke="#fff" stroke-width="7"/><path d="M60 26 V58 M44 42 H76" stroke="#fff" stroke-width="8"/>',
+    trash: '<path d="M38 28 H82 M50 28 V20 H70 V28 M42 28 L46 72 H74 L78 28" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>',
+    back: '<path d="M80 42 H40 M54 26 L38 42 L54 58" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>' };
+  return `<svg viewBox="0 0 120 84" width="120" height="84">${P[k] || ''}</svg>`;
+}
+const turboOOK = (ok, id) => (!ok && id ? 'ターボ車専用パーツ' : 'この車種には装着不可');
+
 // 2D wheel painter for thumbnails
 export function paintWheel(cv, cfg) {
   const g = cv.getContext('2d'); const W = cv.width, cx = W / 2, R = W * 0.46;
@@ -478,7 +495,8 @@ const WHEEL_CATS = [
   { k: 'rim', jp: 'リムカラー', icon: 'wheel', band: '#1a7ad0' },
   { k: 'size', jp: 'インチ', icon: 'wheel', band: '#2a9a3a' },
   { k: 'offset', jp: 'オフセット', icon: 'wheel', band: '#2a9a3a' },
-  { k: 'tire', jp: 'タイヤ', icon: 'wheel', band: '#e06a00' },
+  { k: 'tirew', jp: 'タイヤ幅', icon: 'wheel', band: '#e06a00' },
+  { k: 'tire', jp: 'タイヤ外観', icon: 'wheel', band: '#e06a00' },
   { k: 'target', jp: '前後設定', icon: 'wheel', band: '#e06a00' },
 ];
 UI.register({
@@ -514,10 +532,11 @@ UI.register({
   cur() { return this.target === 'r' ? this.draft.wheel.r : this.draft.wheel.f; },
   options() {
     const k = WHEEL_CATS[this.ci].k, w = this.cur();
-    if (k === 'design') return WHEEL_DESIGNS.map(d => ({ html: `<canvas width="200" height="200" style="width:110px;height:110px"></canvas><div class="cap">${d.brand ? WHEEL_BRANDS[d.brand].name : 'Normal'}</div>`, value: d.id, desc: `${d.brand ? WHEEL_BRANDS[d.brand].name + ' / ' : ''}${d.name}`, cur: w.design === d.id, paint: { ...w, design: d.id } }));
+    if (k === 'design') return WHEEL_DESIGNS.map(d => ({ locked: Save.owns('wheel', d.id) ? null : `IN-STOREで購入 ¥${partPrice('wheel', d.id).toLocaleString()}`, html: `<canvas width="200" height="200" style="width:110px;height:110px"></canvas><div class="cap">${d.brand ? WHEEL_BRANDS[d.brand].name : 'Normal'}</div>`, value: d.id, desc: `${d.brand ? WHEEL_BRANDS[d.brand].name + ' / ' : ''}${d.name}`, cur: w.design === d.id, paint: { ...w, design: d.id } }));
     if (k === 'color' || k === 'rim') return WHEEL_COLORS.map(([nm, hex]) => ({ html: `<div class="sw" style="background:${hex}"></div><div class="cap">${nm}</div>`, value: hex, desc: `${k === 'rim' ? 'リム' : 'ホイール'}カラー:${nm}`, cur: w[k] === hex }));
     if (k === 'size') return WHEEL_SIZES.map(s => ({ html: `<div style="font-size:46px;font-style:italic;color:#222">${s}<small style="font-size:20px">inch</small></div>`, value: s, desc: `ホイールサイズ ${s}インチ(大きいほどタイヤの扁平率が下がります)`, cur: w.size === s }));
     if (k === 'offset') return WHEEL_OFFSETS.map(o => ({ html: `<div style="font-size:42px;font-style:italic;color:#222">${o > 0 ? '+' : ''}${o}</div><div class="cap">${o > 0 ? 'ツライチ寄り' : o < 0 ? 'インセット' : '標準'}</div>`, value: o, desc: `オフセット ${o > 0 ? '+' : ''}${o}(+で外側へ)`, cur: (w.offset || 0) === o }));
+    if (k === 'tirew') return TIRE_WIDTHS.map(t => ({ html: `<div style="font-size:40px;font-style:italic;color:#222">${t >= 0 ? '+' : ''}${t}<small style="font-size:18px">mm</small></div><div class="cap">タイヤ幅</div>`, value: t, desc: `タイヤ幅 ${t >= 0 ? '+' : ''}${t}mm(太いほどグリップ↑・空気抵抗わずかに↑)`, cur: (this.draft.wheel.tireW || 0) === t }));
     if (k === 'tire') return TIRE_LOOKS.map(t => ({ html: `<div style="font-family:var(--jp);font-weight:900;font-size:26px;color:#222">${t.name}</div>`, value: t.id, desc: `タイヤの外観:${t.name}`, cur: this.draft.wheel.tire === t.id }));
     if (k === 'target') return [['both', '前後同じ'], ['f', 'フロント'], ['r', 'リア']].map(([v, nm]) => ({ html: `<div style="font-family:var(--jp);font-weight:900;font-size:30px;color:#222">${nm}</div>`, value: v, desc: `編集対象を「${nm}」にします(前後別々のホイールを設定できます)`, cur: this.target === v }));
     return [];
@@ -533,13 +552,16 @@ UI.register({
     const k = WHEEL_CATS[this.ci].k; const W = this.draft.wheel;
     if (k === 'target') { this.target = val; W.link = val === 'both'; return; }
     if (k === 'tire') { W.tire = val; return; }
+    if (k === 'tirew') { W.tireW = val; return; }
     const tgts = this.target === 'both' ? [W.f, W.r] : [this.target === 'r' ? W.r : W.f];
     for (const t of tgts) { t[k] = val; if (k === 'color' && !this._rimTouched) t.rim = val; }
     if (k === 'rim') this._rimTouched = true;
   },
   preview() { const o = this.opts[this.sel.i]; if (!o) return; if (WHEEL_CATS[this.ci].k !== 'target') { this.set(o.value); this.redraw(); } $('.pdesc', this.el).textContent = o.desc; },
   equip() {
-    const o = this.opts[this.sel.i]; if (!o) return; this.set(o.value);
+    const o = this.opts[this.sel.i]; if (!o) return;
+    if (o.locked) { Audio.ui('error'); return toast(o.locked); }
+    this.set(o.value);
     this.gc.dress = JSON.parse(JSON.stringify(this.draft)); Save.touch('wheel'); Audio.ui('ok'); this.redraw();
     this.renderParts();
   },
@@ -676,7 +698,7 @@ UI.register({
   info(i) {
     const p = this.parts()[i]; const lv = this.gc.tune[p.id] || 0;
     const cur = App.specOf(this.gc); const nt = { ...this.gc.tune, [p.id]: Math.min(TUNE_MAX, lv + 1) };
-    const nxt = buildSpec(this.base, nt, this.gc.setup);
+    const nxt = buildSpec(this.base, nt, this.gc.setup, this.gc.dress);
     const total = tuneTotal(this.gc.tune);
     const fxRows = [['パワー', 'power'], ['コーナリング', 'handling'], ['スタビリティ', 'stability']];
     $('.tn-left', this.el).innerHTML = `<div style="display:inline-block;padding:6px 30px;background:linear-gradient(180deg,#e8f4ff,#8ad0ff);color:#0a2a6a;border-radius:8px;font-size:34px;font-style:italic;box-shadow:0 4px 0 #000">Tune Lv.${total}→${lv >= TUNE_MAX ? total : total + 1}</div>
@@ -805,5 +827,78 @@ UI.register({
     if (a === 'ok') return this.go();
     if (this.p.event) return;
     this.focus.action(a);
+  },
+});
+
+// ───────────────────────── IN-STORE (parts shop) ─────────────────────────
+const STORE_CATS = [
+  ...Object.entries(AERO).map(([k, v]) => ({ k, jp: v.jp, icon: v.icon, band: v.band, list: v.list.filter(it => it.id !== 0 && it.id !== 'stock').map(it => ({ id: it.id, brand: it.brand, name: it.name })) })),
+  { k: 'wheel', jp: 'ホイール', icon: 'wheel', band: '#1a7ad0', list: WHEEL_DESIGNS.filter(d => d.brand).map(d => ({ id: d.id, brand: d.brand, name: d.name })) },
+  { k: 'vinyl', jp: 'ステッカー', icon: 'vinyl', band: '#e06a00', list: [...new Set(Object.values(VINYL_SLOTS).flatMap(v => v.designs))].filter(d => d !== 'none').map(d => ({ id: d, brand: 'NORMAL', name: VINYL_NAMES[d] })) },
+];
+UI.register({
+  id: 'store',
+  build(n) {
+    n.innerHTML = `<div class="rotzone" style="position:absolute;left:620px;right:40px;top:40px;bottom:400px;z-index:4"></div>
+      ${backdrop([[640, 40], [1890, 40], [1890, 690], [520, 690]], { tone: '#d8c8a8' })}
+      <div class="af-title" style="left:760px;top:56px"><div class="t">IN-STORE</div><div style="font-family:var(--jp);font-weight:900;font-size:24px;color:#ffd400;text-shadow:0 2px 0 #000">パーツショップ — 購入したパーツは全車種で使えます</div></div>
+      <div class="pp"></div><div class="vcat"></div>
+      <div style="position:absolute;left:520px;right:0;top:700px;height:300px;overflow:hidden;z-index:5"><div class="hrow" style="left:40px;top:60px;right:auto"></div></div>
+      <div class="pdesc"></div><div class="st-buy" style="position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);z-index:20;pointer-events:none"></div>
+      <div class="cbx"></div>${logoMark()}${keyGuide([['ud', 'カテゴリ'], ['lr', '商品'], ['ok', '購入'], ['back', '戻る']])}`;
+  },
+  enter(params = {}) {
+    const gc = Save.profile.cars.find(c => c.uid === params.uid) || Save.activeCar; normalizeCar(gc); this.gc = gc; this.base = carById(gc.carId);
+    this.spec = App.specOf(gc);
+    App.gfx.setView(App.showroom); App.showroom.setWindow(0.64, 0.33, 1.0); App.showroom.setPreset('three');
+    $('.pp', this.el).innerHTML = plate();
+    this.ci = 0;
+    this.layout = renderVcat($('.vcat', this.el), STORE_CATS, 0, (i) => { this.ci = i; Audio.ui('move'); this.layout(i); this.render(); });
+    this.render();
+  },
+  leave() { App.showroom.setPreset('free'); },
+  render() {
+    $('.cbx', this.el).innerHTML = consoleBox();
+    const cat = STORE_CATS[this.ci];
+    this.opts = cat.list.map(it => {
+      const owned = Save.owns(cat.k, it.id), price = partPrice(cat.k, it.id);
+      const inner = cat.k === 'wheel' ? `<canvas width="200" height="200" style="width:96px;height:96px"></canvas><div class="cap">${WHEEL_BRANDS[it.brand].name}</div>` : cat.k === 'vinyl' ? `<div style="font-family:var(--jp);font-weight:900;font-size:26px;color:#222">${esc(it.name)}</div>` : brandMark(it.brand);
+      return { it, owned, price, html: `${inner}<div style="position:absolute;right:30px;bottom:8px;font-size:18px;font-style:italic;color:${owned ? '#1a8a3a' : '#c60'}">${owned ? '購入済み' : '¥' + price.toLocaleString()}</div>` };
+    });
+    this.sel = { i: 0 };
+    this.mark = renderRow($('.hrow', this.el), this.opts, this.sel, -1, (i, click) => { this.sel.i = i; this.mark(); this.preview(); if (click) this.buy(); });
+    $$('.hrow canvas', this.el).forEach((cv, i) => paintWheel(cv, { design: this.opts[i].it.id, color: '#c9ccd0', size: 17 }));
+    this.preview();
+  },
+  preview() {
+    const cat = STORE_CATS[this.ci], o = this.opts[this.sel.i]; if (!o) return;
+    const d = JSON.parse(JSON.stringify(this.gc.dress));
+    if (AERO[cat.k]) { if (cat.k === 'muffler') d.muffler = o.it.id; else d.aero[cat.k] = o.it.id; }
+    if (cat.k === 'wheel') { d.wheel.f.design = d.wheel.r.design = o.it.id; }
+    if (cat.k === 'vinyl') { const slot = Object.keys(VINYL_SLOTS).find(sl => VINYL_SLOTS[sl].designs.includes(o.it.id)); d.vinyl[slot].d = o.it.id; }
+    App.showroom.setCar(buildSpec(this.base, this.gc.tune, this.gc.setup, d), d, { teamName: Save.profile.teamName });
+    const before = carStats(this.spec), after = carStats(buildSpec(this.base, this.gc.tune, this.gc.setup, d));
+    const diff = STAT6.map(([l, k]) => [l, after[k] - before[k]]).filter(([, v]) => Math.abs(v) > 0.02).map(([l, v]) => `${l} ${v > 0 ? '▲' : '▼'}${Math.abs(v).toFixed(2)}`).join(' / ');
+    const fit = AERO[cat.k] ? (!isCompatible(this.base.body.style, cat.k, o.it.id) ? ' ※この車種には装着不可' : (AERO[cat.k].turboOnly && !this.base.sound.turbo ? ' ※ターボ車専用' : '')) : '';
+    $('.pdesc', this.el).textContent = `${o.it.name}${diff ? ' — ' + diff : ''}${fit}`;
+  },
+  async buy() {
+    const cat = STORE_CATS[this.ci], o = this.opts[this.sel.i]; if (!o) return;
+    if (o.owned) { Audio.ui('error'); return toast('購入済みです'); }
+    if (o.price > Save.profile.credits) { Audio.ui('error'); return dialog.alert('クレジット不足', `必要: ¥${o.price.toLocaleString()} / 所持: ¥${Save.profile.credits.toLocaleString()}`); }
+    if (!(await dialog.confirm('購入確認', `<b>${esc(o.it.name)}</b><br>¥${o.price.toLocaleString()} で購入しますか?`, '購入する', 'やめる'))) return;
+    Save.profile.credits -= o.price; Save.profile.inventory[`${cat.k}:${o.it.id}`] = true;
+    await Save.persistNow('purchase');
+    Audio.ui('coin'); setTimeout(() => Audio.ui('start'), 150);
+    const fx = $('.st-buy', this.el);
+    fx.innerHTML = `<div class="buyfx"><b>PURCHASED!</b><span>${esc(o.it.name)}</span><i>-¥${o.price.toLocaleString()}</i></div>`;
+    setTimeout(() => { fx.innerHTML = ''; }, 1600);
+    const i = this.sel.i; this.render(); this.sel.i = i; this.mark(); this.preview();
+  },
+  onAction(a) {
+    if (a === 'back') { Audio.ui('back'); return UI.go('garage', { menu: 5 }); }
+    if (a === 'up' || a === 'down') { this.ci = (this.ci + (a === 'up' ? -1 : 1) + STORE_CATS.length) % STORE_CATS.length; Audio.ui('move'); this.layout(this.ci); return this.render(); }
+    if (a === 'left' || a === 'right') { const n = this.opts.length; this.sel.i = (this.sel.i + (a === 'left' ? -1 : 1) + n) % n; Audio.ui('move'); this.mark(); return this.preview(); }
+    if (a === 'ok') return this.buy();
   },
 });

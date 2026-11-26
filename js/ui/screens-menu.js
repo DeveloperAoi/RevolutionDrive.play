@@ -69,7 +69,7 @@ UI.register({
   rows() {
     const s = App.settings;
     return [
-      ['BGM VOLUME', 'slider', 'bgm'], ['SE VOLUME', 'slider', 'sfx'],
+      ['BGM VOLUME', 'slider', 'bgm'], ['SE VOLUME', 'slider', 'sfx'], ['GUIDE SE (0=OFF)', 'slider', 'guideSe'],
       ['TRANSMISSION', s.autoGear ? 'AT オートマ' : 'MT マニュアル', 'autoGear'],
       ['DRIFT ASSIST', 'slider', 'assist'],
       ['CAMERA', ['CHASE', 'FAR', 'BUMPER'][s.camera], 'camera'],
@@ -83,13 +83,13 @@ UI.register({
     ];
   },
   render() {
-    const s = App.settings; s.ghostOp10 ??= 4; s.camShake ??= 6;
+    const s = App.settings; s.ghostOp10 ??= 4; s.camShake ??= 6; s.guideSe ??= 7;
     $('.s-opts', this.el).innerHTML = this.rows().map(([l, v, k]) => `<div class="opt"><label>${l}</label><span class="arr">◀</span>${v === 'slider' ? `<span class="slider">${Array.from({ length: 10 }, (_, i) => `<i class="${i < s[k] ? 'on' : ''}"></i>`).join('')}</span>` : `<span class="val">${v}</span>`}<span class="arr">▶</span></div>`).join('') + `<div class="opt" style="justify-content:center"><span class="val">◀ 戻る</span></div>`;
     $$('.s-opts .opt', this.el).forEach((o, k) => { o.classList.toggle('focus', k === this.i); o.onclick = (e) => { this.i = k; if (k === this.rows().length) return this.exit(); this.change(e.offsetX < o.clientWidth / 2 ? -1 : 1); }; });
   },
   change(d) {
     const s = App.settings; const k = this.rows()[this.i]?.[2]; if (!k) return;
-    if (k === 'bgm' || k === 'sfx' || k === 'assist') s[k] = Math.max(0, Math.min(10, s[k] + d));
+    if (k === 'bgm' || k === 'sfx' || k === 'assist' || k === 'guideSe') { s[k] = Math.max(0, Math.min(10, (s[k] ?? 7) + d)); if (k === 'guideSe') setTimeout(() => Audio.guideSE('curve', 0), 50); }
     if (k === 'autoGear') s.autoGear = !s.autoGear;
     if (k === 'custTimer') s.custTimer = !s.custTimer;
     if (k === 'ghost') s.ghost = s.ghost === false;
@@ -160,7 +160,7 @@ UI.register({
     if (a === 'delete') {
       const pw = await this.askPassword(); if (pw == null) return;
       if (!(await dialog.confirm('アカウント削除', '<span style="color:#ff6a6a">アカウントとクラウド上のすべてのセーブデータを削除します。<br>この操作は元に戻せません。</span>', '完全に削除', 'キャンセル'))) return;
-      try { await Net.deleteAccount(pw); Save.profile = null; Save.setGuest(); await dialog.alert('削除完了', 'アカウントを削除しました。'); UI.go('title'); }
+      try { await Net.deleteAccount(pw, COURSES.flatMap(c => [`${c.id}_fwd`, `${c.id}_rev`])); Save.profile = null; Save.setGuest(); await dialog.alert('削除完了', 'アカウントを削除しました。'); UI.go('title'); }
       catch (e) { dialog.alert('エラー', Net.errText(e)); }
     }
   },

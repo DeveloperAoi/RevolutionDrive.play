@@ -13,7 +13,7 @@ export const PART_BRANDS = {
 
 // aero categories → variants. "v" is the geometry variant used by the car model.
 export const AERO = {
-  fspoiler: { jp: 'フロントスポイラー', icon: 'front', band: '#2a9a3a', list: [
+  fspoiler: { jp: 'フロントバンパー', icon: 'front', band: '#2a9a3a', list: [
     { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'KAMISPEED', name: 'フロントアンダースポイラー' }, { id: 2, brand: 'RAIDEN', name: 'フロントバンパー+大型ダクト' }, { id: 3, brand: 'ZENITH', name: 'フロントスプリッター' }] },
   flip: { jp: 'フロントリップ', icon: 'front', band: '#2a9a3a', list: [
     { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'HAYABUSA', name: 'カーボンリップ' }, { id: 2, brand: 'SHINOBI', name: 'ワイドリップ' }] },
@@ -21,6 +21,8 @@ export const AERO = {
     { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'KAMISPEED', name: 'サイドステップ' }, { id: 2, brand: 'ZENITH', name: 'ワイドサイドスカート' }] },
   rbumper: { jp: 'リアバンパー', icon: 'rear', band: '#1a7ad0', list: [
     { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'RAIDEN', name: 'リアアンダースポイラー' }, { id: 2, brand: 'AKATSUKI', name: 'リアディフューザー' }] },
+  diffuser: { jp: 'リアディフューザー', icon: 'rear', band: '#1a7ad0', list: [
+    { id: 0, brand: 'NORMAL', name: 'なし' }, { id: 1, brand: 'ZENITH', name: 'カーボンディフューザー' }, { id: 2, brand: 'AKATSUKI', name: 'レーシングディフューザー(大型フィン)' }] },
   rspoiler: { jp: 'リアスポイラー', icon: 'rear', band: '#1a7ad0', list: [
     { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'HAYABUSA', name: 'ダックテール' }, { id: 2, brand: 'SHINOBI', name: 'ルーフスポイラー' }] },
   wing: { jp: 'ウイング', icon: 'wing', band: '#e06a00', list: [
@@ -31,10 +33,22 @@ export const AERO = {
     { id: 0, brand: 'NORMAL', name: 'なし' }, { id: 1, brand: 'SHINOBI', name: 'フロントカナード' }, { id: 2, brand: 'KAMISPEED', name: 'ダブルカナード' }] },
   fender: { jp: 'オーバーフェンダー', icon: 'side', band: '#e06a00', list: [
     { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'AKATSUKI', name: 'ボルトオンフェンダー' }, { id: 2, brand: 'ZENITH', name: 'ワイドボディキット' }] },
+  intake: { jp: 'インテーク', icon: 'hood', band: '#c01020', list: [
+    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'HAYABUSA', name: 'むき出しエアクリーナー' }, { id: 2, brand: 'RAIDEN', name: 'ラムエアダクト' }] },
+  intercooler: { jp: 'インタークーラー', icon: 'front', band: '#c01020', list: [
+    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'ZENITH', name: '前置きインタークーラー' }, { id: 2, brand: 'KAMISPEED', name: '大容量前置きIC' }], turboOnly: true },
+  calipers: { jp: 'ブレーキキャリパー', icon: 'wheel', band: '#c01020', list: [
+    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'AKATSUKI', name: '4ポッドキャリパー(レッド)' }, { id: 2, brand: 'RAIDEN', name: '6ポッドビッグキット(ゴールド)' }] },
+  suspkit: { jp: 'サスペンション', icon: 'height', band: '#c01020', list: [
+    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'SHINOBI', name: 'ストリート車高調' }, { id: 2, brand: 'KAMISPEED', name: 'スポーツ車高調' }, { id: 3, brand: 'ZENITH', name: 'レーシング車高調' }] },
   muffler: { jp: 'マフラー', icon: 'muffler', band: '#1a7ad0', list: [
     { id: 'stock', brand: 'NORMAL', name: 'ノーマル' }, { id: 'dual', brand: 'HAYABUSA', name: 'デュアルテール' }, { id: 'big', brand: 'KAMISPEED', name: 'チタン砲弾' }, { id: 'quad', brand: 'RAIDEN', name: '4本出し' }] },
 };
 
+// IN-STORE prices (credits). id 0 / 'stock' is always owned.
+export const PART_PRICE = { fspoiler: 2500, flip: 1500, side: 2000, rbumper: 2000, diffuser: 2500, rspoiler: 1500, wing: 3000, bonnet: 2500, canard: 1200, fender: 3500, intake: 2000, intercooler: 3500, calipers: 2500, suspkit: 3000, muffler: 2000, wheel: 2000, vinyl: 800, color: 0 };
+export const partPrice = (cat, id) => (id === 0 || id === 'stock' || id === 'none' || id === 'stock5') ? 0 : Math.round((PART_PRICE[cat] || 1500) * (1 + (typeof id === 'number' ? (id - 1) * 0.35 : 0)));
+export const partKey = (cat, id) => `${cat}:${id}`;
 // parts a body style cannot physically take
 export const INCOMPATIBLE = {
   roadster: { rspoiler: [2] },          // no roof → no roof spoiler
@@ -91,6 +105,7 @@ export const WHEEL_DESIGNS = [
 export const WHEEL_COLORS = [['シルバー', '#c9ccd0'], ['ガンメタ', '#4a4e55'], ['ブラック', '#161616'], ['ホワイト', '#f2f2f2'], ['ゴールド', '#d4a017'], ['ブロンズ', '#8a6a3a'], ['レッド', '#c01020'], ['ブルー', '#1a5ad0'], ['クローム', '#e8e8e8']];
 export const WHEEL_SIZES = [15, 16, 17, 18, 19];
 export const WHEEL_OFFSETS = [-2, -1, 0, 1, 2, 3]; // + pushes the wheel out (more aggressive stance)
+export const TIRE_WIDTHS = [-10, 0, 10, 20, 30]; // mm relative to stock
 export const TIRE_LOOKS = [{ id: 'normal', name: 'ノーマル' }, { id: 'letter', name: 'ホワイトレター' }, { id: 'stretch', name: '引っ張りタイヤ' }, { id: 'slick', name: 'セミスリック' }];
 
 // ---- meters ----
@@ -160,7 +175,7 @@ export function normalizeCar(gc, spec) {
       v2: true,
       color: d.color && d.color.hex ? { hex: d.color.hex, finish: d.color.finish || 'metallic' } : { hex: paintHex, finish: 'metallic' },
       vinyl: { side: { d: d.decal === 'side' ? 'flame' : d.decal === 'number' ? 'number' : d.decal === 'rd' ? 'logo' : 'none', x: 0, y: 0, s: 1, r: 0 }, hood: { d: 'none', x: 0, y: 0, s: 1, r: 0 }, rear: { d: 'none', x: 0, y: 0, s: 1, r: 0 }, stripe: { d: d.decal === 'stripe' ? 'twin' : 'none', x: 0, y: 0, s: 1, r: 0 } },
-      aero: { fspoiler: d.aero !== 'stock' && d.aero ? 1 : 0, flip: d.aero !== 'stock' && d.aero ? 1 : 0, side: d.aero !== 'stock' && d.aero ? 1 : 0, rbumper: 0, rspoiler: d.spoiler === 'duck' ? 1 : 0, wing: d.spoiler === 'mid' ? 1 : d.spoiler === 'gt' ? 2 : 0, bonnet: 0, canard: 0, fender: d.aero === 'wide' ? 2 : 0 },
+      aero: { diffuser: 0, intake: 0, intercooler: 0, calipers: 0, suspkit: 0, fspoiler: d.aero !== 'stock' && d.aero ? 1 : 0, flip: d.aero !== 'stock' && d.aero ? 1 : 0, side: d.aero !== 'stock' && d.aero ? 1 : 0, rbumper: 0, rspoiler: d.spoiler === 'duck' ? 1 : 0, wing: d.spoiler === 'mid' ? 1 : d.spoiler === 'gt' ? 2 : 0, bonnet: 0, canard: 0, fender: d.aero === 'wide' ? 2 : 0 },
       wheel: { f: { design: wheelMap[0], color: wheelMap[1], rim: wheelMap[1], size: 16, offset: 0 }, r: { design: wheelMap[0], color: wheelMap[1], rim: wheelMap[1], size: 16, offset: 0 }, link: true, tire: 'normal' },
       muffler: d.muffler || 'stock', height: d.height || 0, number: d.number || '',
     };
@@ -170,7 +185,29 @@ export function normalizeCar(gc, spec) {
     for (const [k, ids] of Object.entries(V1_TUNE)) if (old[k]) ids.forEach(id => t[id] = Math.min(TUNE_MAX, Math.round(old[k] * 5 / 3)));
     gc.tune = t;
   }
+  for (const k of ['diffuser', 'intake', 'intercooler', 'calipers', 'suspkit']) gc.dress.aero[k] ??= 0;
+  gc.dress.wheel.tireW ??= 0;
   gc.meter ||= defaultMeter();
   return gc;
 }
 export const defaultDressV2 = () => normalizeCar({ dress: {} }).dress;
+
+// ---- performance effect of equipped parts (applied in buildSpec) ----
+export function partEffects(dress, base) {
+  const fx = { power: 0, downforce: 0, cda: 0, mass: 0, grip: 0, brake: 0, susp: 0, cg: 0 };
+  if (!dress || !dress.v2) return fx;
+  const A = dress.aero || {};
+  fx.downforce += [0, 0.08, 0.18, 0.22][A.wing || 0]; fx.cda += [0, 0.02, 0.05, 0.05][A.wing || 0];
+  fx.downforce += (A.fspoiler ? 0.03 : 0) + (A.flip ? 0.02 : 0) + (A.canard ? 0.015 * A.canard : 0) + (A.diffuser ? 0.03 + A.diffuser * 0.01 : 0) + (A.rspoiler ? 0.02 : 0);
+  fx.cda += (A.fspoiler ? 0.01 : 0) + (A.canard ? 0.006 : 0) + (A.fender === 2 ? 0.02 : A.fender === 1 ? 0.01 : 0);
+  fx.mass += A.bonnet === 2 ? -12 : A.bonnet === 1 ? -5 : 0;
+  fx.grip += A.fender === 2 ? 0.015 : A.fender === 1 ? 0.008 : 0;
+  fx.power += [0, 1.5, 3][A.intake || 0];
+  if (base && base.sound.turbo) fx.power += [0, 3, 5][A.intercooler || 0];
+  fx.power += { stock: 0, dual: 1, big: 2, quad: 2 }[dress.muffler] || 0;
+  fx.brake += [0, 0.04, 0.08][A.calipers || 0];
+  fx.susp += [0, 0.5, 1.0, 1.5][A.suspkit || 0];
+  const tw = dress.wheel?.tireW || 0; fx.grip += tw * 0.0013; fx.cda += Math.max(0, tw) * 0.0004;
+  const drop = [0, 0.02, 0.04, 0.06][dress.height || 0]; fx.cg -= drop * 0.8;
+  return fx;
+}

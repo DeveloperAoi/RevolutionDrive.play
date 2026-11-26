@@ -24,6 +24,20 @@ const PROFILES = {
     lower: [[-0.5, 0.30], [-0.5, 0.55], [-0.47, 0.62], [-0.28, 0.63], [0.30, 0.58], [0.46, 0.50], [0.5, 0.40], [0.5, 0.28]],
     cabin: [[-0.30, 0.62], [-0.18, 0.96], [0.10, 0.98], [0.30, 0.60]],
   },
+  // ---- per-model silhouettes (index 3 of `lower` = rear deck, cabin = [rear base, roof rear, roof front, front base]) ----
+  retroHatch: { lower: [[-0.5, 0.30], [-0.5, 0.58], [-0.48, 0.64], [-0.30, 0.65], [0.30, 0.62], [0.47, 0.57], [0.5, 0.47], [0.5, 0.30]], cabin: [[-0.48, 0.63], [-0.43, 0.96], [0.06, 1.0], [0.28, 0.63]] },
+  hotHatch: { lower: [[-0.5, 0.32], [-0.5, 0.60], [-0.47, 0.66], [-0.32, 0.67], [0.30, 0.60], [0.46, 0.50], [0.5, 0.42], [0.5, 0.30]], cabin: [[-0.46, 0.65], [-0.37, 0.98], [0.02, 1.0], [0.30, 0.60]] },
+  curvyCoupe: { lower: [[-0.5, 0.33], [-0.5, 0.50], [-0.46, 0.60], [-0.30, 0.62], [-0.10, 0.58], [0.25, 0.52], [0.44, 0.42], [0.5, 0.36], [0.5, 0.30]], cabin: [[-0.33, 0.58], [-0.12, 0.93], [0.05, 0.95], [0.27, 0.53]] },
+  gtCoupe: { lower: [[-0.5, 0.30], [-0.5, 0.58], [-0.48, 0.64], [-0.28, 0.65], [0.30, 0.60], [0.47, 0.54], [0.5, 0.44], [0.5, 0.30]], cabin: [[-0.33, 0.63], [-0.18, 0.97], [0.10, 0.99], [0.30, 0.60]] },
+  rallySedan: { lower: [[-0.5, 0.30], [-0.5, 0.55], [-0.47, 0.62], [-0.28, 0.63], [0.30, 0.58], [0.46, 0.50], [0.5, 0.40], [0.5, 0.28]], cabin: [[-0.30, 0.62], [-0.18, 0.96], [0.10, 0.98], [0.30, 0.60]] },
+  notchCoupe: { lower: [[-0.5, 0.30], [-0.5, 0.55], [-0.47, 0.62], [-0.33, 0.63], [0.32, 0.56], [0.47, 0.48], [0.5, 0.40], [0.5, 0.30]], cabin: [[-0.36, 0.62], [-0.20, 0.94], [0.08, 0.96], [0.32, 0.56]] },
+  sleekCoupe: { lower: [[-0.5, 0.30], [-0.5, 0.56], [-0.46, 0.63], [-0.30, 0.64], [0.30, 0.57], [0.46, 0.47], [0.5, 0.39], [0.5, 0.30]], cabin: [[-0.34, 0.62], [-0.16, 0.95], [0.06, 0.97], [0.31, 0.56]] },
+  wedgeCoupe: { lower: [[-0.5, 0.32], [-0.5, 0.55], [-0.45, 0.62], [-0.30, 0.62], [0.35, 0.53], [0.48, 0.44], [0.5, 0.38], [0.5, 0.30]], cabin: [[-0.38, 0.60], [-0.16, 0.92], [0.04, 0.94], [0.32, 0.54]] },
+  compactGT: { lower: [[-0.5, 0.30], [-0.5, 0.57], [-0.47, 0.63], [-0.30, 0.64], [0.32, 0.60], [0.47, 0.53], [0.5, 0.44], [0.5, 0.30]], cabin: [[-0.33, 0.62], [-0.20, 0.95], [0.08, 0.97], [0.31, 0.59]] },
+  angularGT: { lower: [[-0.5, 0.30], [-0.5, 0.60], [-0.49, 0.65], [-0.27, 0.66], [0.30, 0.61], [0.47, 0.55], [0.5, 0.45], [0.5, 0.30]], cabin: [[-0.30, 0.64], [-0.18, 0.98], [0.12, 1.0], [0.30, 0.61]] },
+  longGT: { lower: [[-0.5, 0.32], [-0.5, 0.52], [-0.46, 0.60], [-0.30, 0.62], [-0.10, 0.60], [0.30, 0.54], [0.46, 0.45], [0.5, 0.38], [0.5, 0.30]], cabin: [[-0.32, 0.60], [-0.12, 0.93], [0.06, 0.95], [0.28, 0.55]] },
+  modernCoupe: { lower: [[-0.5, 0.31], [-0.5, 0.55], [-0.46, 0.62], [-0.32, 0.63], [0.30, 0.57], [0.45, 0.47], [0.5, 0.40], [0.5, 0.30]], cabin: [[-0.34, 0.61], [-0.15, 0.95], [0.05, 0.97], [0.30, 0.56]] },
+  rallySedan2: { lower: [[-0.5, 0.30], [-0.5, 0.56], [-0.47, 0.62], [-0.28, 0.63], [0.30, 0.59], [0.46, 0.51], [0.5, 0.42], [0.5, 0.30]], cabin: [[-0.30, 0.62], [-0.17, 0.97], [0.12, 0.99], [0.30, 0.60]] },
 };
 
 let envMap = null;
@@ -195,8 +209,8 @@ export function createCar(spec, dressIn = {}, opts = {}) {
   const len = b.len, hgt = b.hgt;
   const wide = A.fender === 2 ? 0.08 : A.fender === 1 ? 0.04 : 0;
   const wid = b.wid + (A.fender === 2 ? wide * 2 : 0);
-  const prof = PROFILES[b.style] || PROFILES.coupe;
-  const R = spec.tire.radius, TW = spec.tire.width / 1000 + 0.02;
+  const prof = PROFILES[b.shape] || PROFILES[b.style] || PROFILES.coupe;
+  const R = spec.tire.radius, TW = (spec.tire.width + ((dressIn && dressIn.wheel && dressIn.wheel.tireW) || 0)) / 1000 + 0.02;
   const wb = spec.wheelbase;
   const fz = wb / 2, rz = -wb / 2;
   const root = new THREE.Group();
@@ -237,9 +251,43 @@ export function createCar(spec, dressIn = {}, opts = {}) {
   const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff4dd, emissiveIntensity: 2.2, roughness: 0.1 });
   const tailMat = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0xff1010, emissiveIntensity: 0.9, roughness: 0.3 });
   const yH = Y0 + 0.47 * hgt;
+  const headStyle = b.head || 'rect', tailStyle = b.tail || 'bar';
+  const noseY = yAt(0.47), lightW = wid / 2 - 0.26;
   for (const sd of [-1, 1]) {
-    const hl = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.09, 0.06), headMat); hl.position.set(sd * (wid / 2 - 0.26), yH, frontZ - 0.095); hl.rotation.x = -0.35; body.add(hl);
-    const tl = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.10, 0.05), tailMat); tl.position.set(sd * (wid / 2 - 0.27), Y0 + 0.54 * hgt, rearZ + 0.02); body.add(tl);
+    // headlights
+    if (headStyle === 'popup') {
+      // retractable lamps: closed panels in the showroom, raised pods with lamps when driving at night
+      const up = !!opts.headlights;
+      const pod = new THREE.Mesh(new THREE.BoxGeometry(0.34, up ? 0.16 : 0.03, 0.26), paintMat);
+      pod.position.set(sd * lightW, noseY + (up ? 0.08 : 0.01), frontZ - 0.32); pod.rotation.x = up ? 0 : -0.25; body.add(pod);
+      if (up) { const lm = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.11, 0.03), headMat); lm.position.set(sd * lightW, noseY + 0.09, frontZ - 0.18); body.add(lm); }
+      const turn = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.04), new THREE.MeshStandardMaterial({ color: 0xffaa22, emissive: 0x552200, roughness: 0.3 }));
+      turn.position.set(sd * (wid / 2 - 0.35), Y0 + 0.36 * hgt, frontZ + 0.01); body.add(turn);
+    } else if (headStyle === 'round' || headStyle === 'oval') {
+      for (const k of headStyle === 'round' ? [0, 1] : [0]) {
+        const hl = new THREE.Mesh(new THREE.CylinderGeometry(headStyle === 'oval' ? 0.13 : 0.08, headStyle === 'oval' ? 0.13 : 0.08, 0.05, 18), headMat);
+        hl.rotation.x = Math.PI / 2; hl.scale.set(headStyle === 'oval' ? 1.6 : 1, 1, 1); hl.position.set(sd * (lightW - k * 0.18), yH, frontZ - 0.08); body.add(hl);
+      }
+    } else {
+      const dims = { slim: [0.42, 0.06], lowslim: [0.36, 0.05], big: [0.40, 0.13], rect: [0.36, 0.10], angular: [0.42, 0.10], swept: [0.46, 0.07] }[headStyle] || [0.36, 0.09];
+      const hl = new THREE.Mesh(new THREE.BoxGeometry(dims[0], dims[1], 0.06), headMat);
+      hl.position.set(sd * lightW, headStyle === 'lowslim' ? yH - 0.05 : yH, frontZ - 0.095); hl.rotation.x = -0.35;
+      if (headStyle === 'swept' || headStyle === 'angular') hl.rotation.y = sd * 0.25;
+      body.add(hl);
+    }
+    // tail lights
+    const ty = Y0 + 0.54 * hgt;
+    if (tailStyle === 'round' || tailStyle === 'roundBig') {
+      const r0 = tailStyle === 'roundBig' ? 0.12 : 0.075;
+      for (const k of tailStyle === 'round' ? [0, 1] : [0]) {
+        const tl = new THREE.Mesh(new THREE.CylinderGeometry(r0, r0, 0.05, 18), tailMat); tl.rotation.x = Math.PI / 2;
+        tl.position.set(sd * (wid / 2 - 0.22 - k * 0.2), ty, rearZ + 0.02); body.add(tl);
+      }
+    } else if (tailStyle === 'full') {
+      if (sd > 0) { const tl = new THREE.Mesh(new THREE.BoxGeometry(wid * 0.86, 0.11, 0.05), tailMat); tl.position.set(0, ty, rearZ + 0.02); body.add(tl); }
+    } else {
+      const tl = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.10, 0.05), tailMat); tl.position.set(sd * (wid / 2 - 0.27), ty, rearZ + 0.02); body.add(tl);
+    }
     const mr = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.09, 0.12), paintMat); mr.position.set(sd * (cabinW / 2 + 0.1), Y0 + 0.66 * hgt, prof.cabin[prof.cabin.length - 1][0] * len - 0.15); body.add(mr);
   }
   const grille = new THREE.Mesh(new THREE.BoxGeometry(wid * 0.5, 0.11, 0.04), bk); grille.position.set(0, Y0 + 0.36 * hgt, frontZ + 0.005); body.add(grille);
@@ -289,6 +337,19 @@ export function createCar(spec, dressIn = {}, opts = {}) {
   if (A.bonnet === 1) add(new THREE.BoxGeometry(wid * 0.4, 0.06, hoodL * 0.8), paintMat, 0, hy + 0.02, hz, hoodSlope);
   if (A.bonnet === 2) add(new THREE.BoxGeometry(wid * 0.86, 0.012, hoodL * 0.95), carbonMat, 0, hy + 0.012, hz, hoodSlope);
   if (A.bonnet === 3) for (const sd of [-1, 1]) add(new THREE.BoxGeometry(wid * 0.18, 0.02, hoodL * 0.35), bk, sd * wid * 0.2, hy + 0.012, hz + 0.05, hoodSlope);
+  // diffuser, intercooler, intake
+  if (A.diffuser) { add(new THREE.BoxGeometry(wid * 0.8, 0.03, 0.34), carbonMat, 0, Y0 + 0.09, rearZ + 0.07, -0.12); for (let i = -2; i <= 2; i++) add(new THREE.BoxGeometry(0.014, A.diffuser === 2 ? 0.16 : 0.1, 0.32), carbonMat, i * wid * 0.15, Y0 + 0.14, rearZ + 0.07); }
+  if (A.intercooler) {
+    const core = new THREE.Mesh(new THREE.BoxGeometry(wid * (A.intercooler === 2 ? 0.7 : 0.56), A.intercooler === 2 ? 0.16 : 0.12, 0.05), new THREE.MeshStandardMaterial({ map: TX.carbonTexture(), color: 0xb8bcc2, metalness: 0.9, roughness: 0.35, envMap }));
+    core.position.set(0, Y0 + 0.24, frontZ - 0.04); body.add(core);
+  }
+  if (A.intake === 2) for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.16, 0.08, 0.05), bk, sd * wid * 0.32, Y0 + 0.22, frontZ + 0.012);
+  if (A.intake === 1) add(new THREE.CylinderGeometry(0.07, 0.07, 0.12, 12), new THREE.MeshStandardMaterial({ color: 0xd01010, roughness: 0.5 }), wid * 0.22, hy + 0.05, hz - 0.1, 0, 0, Math.PI / 2);
+  // model features
+  const feat = b.features || [];
+  if (feat.includes('scoop') && !A.bonnet) { add(new THREE.BoxGeometry(wid * 0.26, 0.07, hoodL * 0.32), paintMat, 0, hy + 0.04, hz + 0.02, hoodSlope); add(new THREE.BoxGeometry(wid * 0.22, 0.05, 0.02), bk, 0, hy + 0.05, hz + hoodL * 0.16 + 0.01); }
+  if (feat.includes('hoopwing') && !A.wing) { const ww = wid * 0.9; add(new THREE.BoxGeometry(ww, 0.03, 0.18), paintMat, 0, deckY + 0.2, deckZ + 0.02, 0.1); for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.05, 0.2, 0.14), paintMat, sd * ww / 2, deckY + 0.1, deckZ + 0.02); }
+  if (feat.includes('wing') && !A.wing) { const ww = wid * 0.82; add(new THREE.BoxGeometry(ww, 0.03, 0.22), paintMat, 0, deckY + 0.16, deckZ, 0.14); for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.03, 0.16, 0.12), bk, sd * ww * 0.34, deckY + 0.08, deckZ); }
   // canards
   if (A.canard) for (const sd of [-1, 1]) for (let k = 0; k < A.canard; k++) add(new THREE.BoxGeometry(0.16, 0.012, 0.12), carbonMat, sd * (wid / 2 - 0.02), Y0 + 0.22 + k * 0.09, frontZ - 0.12, 0, 0, sd * 0.25);
   // over-fenders
@@ -357,7 +418,8 @@ export function createCar(spec, dressIn = {}, opts = {}) {
     steer.add(w.group);
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(w.rimR * 0.82, w.rimR * 0.82, 0.03, 20), new THREE.MeshStandardMaterial({ color: 0x777777, metalness: 0.9, roughness: 0.35 }));
     disc.rotation.z = Math.PI / 2; disc.position.x = sd * TW * 0.12; steer.add(disc);
-    const caliper = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.12), new THREE.MeshStandardMaterial({ color: 0xd01010, roughness: 0.4 }));
+    const cal = A.calipers || 0;
+    const caliper = new THREE.Mesh(new THREE.BoxGeometry(0.08, [0.14, 0.18, 0.24][cal], [0.1, 0.13, 0.17][cal]), new THREE.MeshStandardMaterial({ color: [0x555555, 0xd01010, 0xd4a017][cal], roughness: 0.35, metalness: cal ? 0.3 : 0.6 }));
     caliper.position.set(sd * TW * 0.18, w.rimR * 0.55, -0.05); steer.add(caliper);
     root.add(holder);
     wheels.push({ holder, steer, spin: w.group, front, side: sd, baseY: R });

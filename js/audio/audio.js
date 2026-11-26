@@ -14,6 +14,7 @@ class AudioSys {
     this.master.connect(comp).connect(ctx.destination);
     this.sfx = ctx.createGain(); this.sfx.gain.value = this.vol.sfx; this.sfx.connect(this.master);
     this.bgm = ctx.createGain(); this.bgm.gain.value = this.vol.bgm * 0.55; this.bgm.connect(this.master);
+    this.guide = ctx.createGain(); this.guide.gain.value = (this.vol.guide ?? 0.7) * 0.9; this.guide.connect(this.master);
     // shared noise buffer
     const len = ctx.sampleRate * 2; const buf = ctx.createBuffer(1, len, ctx.sampleRate); const d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
@@ -22,12 +23,15 @@ class AudioSys {
     const n = 1024; this.curve = new Float32Array(n);
     for (let i = 0; i < n; i++) { const x = i / n * 2 - 1; this.curve[i] = Math.tanh(x * 2.6); }
     if (this._pendingMusic) { const m = this._pendingMusic; this._pendingMusic = null; this.playMusic(m); }
+    // load the combustion-pulse engine synthesiser (falls back to oscillators if unavailable)
+    if (ctx.audioWorklet) ctx.audioWorklet.addModule(new URL('./engine-worklet.js', import.meta.url)).then(() => { this.worklet = true; }).catch(e => console.warn('engine worklet unavailable', e));
   }
 
   setVolume(kind, v) { // v: 0..10
     this.vol[kind] = v / 10;
     if (!this.ctx) return;
     if (kind === 'bgm') this.bgm.gain.setTargetAtTime(this.vol.bgm * 0.55, this.ctx.currentTime, 0.05);
+    else if (kind === 'guide') this.guide.gain.setTargetAtTime(this.vol.guide * 0.9, this.ctx.currentTime, 0.05);
     else this.sfx.gain.setTargetAtTime(this.vol.sfx, this.ctx.currentTime, 0.05);
   }
 
@@ -54,6 +58,35 @@ class AudioSys {
     else if (kind === 'go') this.blip(1760, 0.7, 'sine', 0.3);
     else if (kind === 'section') { this.blip(1175, 0.1, 'sine', 0.18); this.blip(1568, 0.25, 'sine', 0.18, 0.1); }
     else if (kind === 'coin') { this.blip(1568, 0.08, 'square', 0.08); this.blip(2093, 0.25, 'square', 0.08, 0.08); }
+  }
+  // ---- corner-guide SE (short futuristic electronic cues, no voice) ----
+  tone(f0, f1, dur, type = 'square', g = 0.12, when = 0, pan = 0, bus = this.guide) {
+    const c = this.ctx, t = c.currentTime + when;
+    const o = c.createOscillator(), a = c.createGain(); o.type = type;
+    o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    a.gain.setValueAtTime(0.0001, t); a.gain.exponentialRampToValueAtTime(g, t + 0.006); a.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    let node = o.connect(a);
+    if (pan && c.createStereoPanner) { const pn = c.createStereoPanner(); pn.pan.value = pan; node = node.connect(pn); }
+    node.connect(bus); o.start(t); o.stop(t + dur + 0.03);
+  }
+  guideSE(kind, dir = 0) {
+    if (!this.ctx || !(this.vol.guide > 0)) return;
+    const now = this.ctx.currentTime; this._gse ||= {};
+    if (now - (this._gse[kind] || -9) < 0.6 || now - (this._gse._any || -9) < 0.12) return; // no unnatural repeats
+    this._gse[kind] = now; this._gse._any = now;
+    const pan = dir * 0.6; // cue comes from the side the road turns to
+    switch (kind) {
+      case 'curve': this.tone(1320, 1320, 0.05, 'square', 0.07, 0, pan); this.tone(1760, 1760, 0.07, 'square', 0.07, 0.055, pan); break;
+      case 'sharp': [1175, 1568, 2093].forEach((f, i) => this.tone(f, f * 1.02, 0.05, 'sawtooth', 0.06, i * 0.05, pan)); break;
+      case 'hairpin':
+        for (let k = 0; k < 2; k++) { this.tone(1976, 1976, 0.07, 'square', 0.085, k * 0.16, pan); this.tone(1318, 1250, 0.08, 'square', 0.085, k * 0.16 + 0.075, pan); }
+        this.tone(220, 110, 0.25, 'sine', 0.12, 0, pan); break;
+      case 'switch': this.tone(dir < 0 ? 900 : 1400, dir < 0 ? 1400 : 900, 0.09, 'triangle', 0.09, 0, dir); break;
+      case 'chain': [1047, 1319, 1568, 2093].forEach((f, i) => this.tone(f, f, 0.04, 'square', 0.055, i * 0.035, pan)); break;
+      case 'up': this.tone(620, 1240, 0.16, 'sine', 0.1); this.tone(1240, 1240, 0.05, 'square', 0.04, 0.16); break;
+      case 'down': this.tone(1240, 620, 0.16, 'sine', 0.1); this.tone(620, 620, 0.05, 'square', 0.04, 0.16); break;
+      case 'update': this.tone(2400, 2400, 0.025, 'square', 0.04, 0, pan); break;
+    }
   }
   whoosh(dur = 0.6) {
     if (!this.ctx) return;
@@ -120,7 +153,21 @@ class EngineVoice {
     const dest = this.pan ? (this.out.connect(this.pan), this.pan) : this.out;
     dest.connect(sys.sfx);
     this.vol = volume * (player ? 0.5 : 0.35) * (1 + muffler * 0.6);
-    // oscillators
+    this.layout = layoutOf(spec);
+    if (sys.worklet) {
+      // combustion-pulse synthesis: per-car exhaust resonances derived from displacement & id
+      const h = hashStr(spec.id || spec.name || 'car');
+      const disp = spec.disp || 2000;
+      const base = this.layout === 'ROTARY' ? 210 : 70 + 180000 / (disp + 600) * (0.85 + (h % 7) * 0.05);
+      const res = spec.sound.res || [base, base * (2.6 + (h % 5) * 0.15), base * (6.5 + (h % 3) * 0.6)];
+      this.node = new AudioWorkletNode(ctx, 'rd-engine', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1],
+        processorOptions: { layout: this.layout, redline: spec.engine.redline, res, rasp: spec.sound.rasp, loud: muffler, seed: h, mix: this.layout === 'ROTARY' ? [1, 0.9, 0.6] : this.layout === 'I6' ? [0.8, 0.8, 0.5] : [1, 0.6, 0.35] } });
+      this.P = (n) => this.node.parameters.get(n);
+      const tone = ctx.createBiquadFilter(); tone.type = 'lowshelf'; tone.frequency.value = 180; tone.gain.value = this.layout === 'BOXER' || this.layout === 'V6' ? 6 : 3;
+      this.node.connect(tone).connect(this.out);
+      this.wk = true;
+    }
+    // oscillators (fallback engine; a quiet mechanical layer under the worklet)
     const mk = (t) => { const o = ctx.createOscillator(); o.type = t; o.start(); return o; };
     this.o1 = mk(this.rotary ? 'square' : 'sawtooth');
     this.o2 = mk('square'); // sub
@@ -135,7 +182,8 @@ class EngineVoice {
     this.am = ctx.createGain(); this.am.gain.value = 0.7;
     this.lfo = mk('square'); this.lfoG = ctx.createGain(); this.lfoG.gain.value = 0.3;
     this.lfo.connect(this.lfoG).connect(this.am.gain);
-    this.drive.connect(this.shaper).connect(this.am).connect(this.lp).connect(this.out);
+    this.drive.connect(this.shaper).connect(this.am).connect(this.lp);
+    this.oscOut = ctx.createGain(); this.oscOut.gain.value = this.wk ? 0.12 : 1; this.lp.connect(this.oscOut).connect(this.out);
     // intake / exhaust noise
     this.nz = sys.noise(); this.nzF = ctx.createBiquadFilter(); this.nzF.type = 'bandpass'; this.nzF.Q.value = 0.8; this.nzG = ctx.createGain(); this.nzG.gain.value = 0;
     this.nz.connect(this.nzF).connect(this.nzG).connect(this.out); this.nz.start(0, Math.random());
@@ -145,7 +193,11 @@ class EngineVoice {
     this.sq = sys.noise(); this.sqF = ctx.createBiquadFilter(); this.sqF.type = 'bandpass'; this.sqF.Q.value = 6; this.sqF.frequency.value = 1100;
     this.sqF2 = ctx.createBiquadFilter(); this.sqF2.type = 'bandpass'; this.sqF2.Q.value = 9; this.sqF2.frequency.value = 2100;
     this.sqG = ctx.createGain(); this.sqG.gain.value = 0;
+    this.scr = ctx.createOscillator(); this.scr.type = 'triangle'; this.scr.frequency.value = 900; this.scrG = ctx.createGain(); this.scrG.gain.value = 0;
+    this.scrLfo = ctx.createOscillator(); this.scrLfo.frequency.value = 23; this.scrLfoG = ctx.createGain(); this.scrLfoG.gain.value = 60; this.scrLfo.connect(this.scrLfoG).connect(this.scr.frequency);
+    this.scr.connect(this.scrG); this.scr.start(); this.scrLfo.start();
     this.sq.connect(this.sqF).connect(this.sqG); this.sq.connect(this.sqF2).connect(this.sqG); this.sqG.connect(dest); this.sq.start(0, Math.random());
+    this.scrG.connect(dest);
     // gravel rumble
     this.gr = sys.noise(); this.grF = ctx.createBiquadFilter(); this.grF.type = 'lowpass'; this.grF.frequency.value = 400; this.grG = ctx.createGain(); this.grG.gain.value = 0;
     this.gr.connect(this.grF).connect(this.grG).connect(dest); this.gr.start(0, Math.random());
@@ -170,19 +222,29 @@ class EngineVoice {
     this.nzG.gain.setTargetAtTime(0.05 + th * 0.12 * (0.4 + rf), t, k);
     const att = 1 / (1 + dist * dist * 0.004);
     const lim = v.limiterHit > 0.04 ? 0.55 : 1;
-    this.out.gain.setTargetAtTime(this.vol * (0.45 + th * 0.55) * att * lim, t, 0.02);
+    this.out.gain.setTargetAtTime(this.vol * (this.wk ? 1 : (0.45 + th * 0.55)) * att * (this.wk ? 1 : lim), t, 0.02);
+    if (this.wk) {
+      const load = throttle > 0.05 ? throttle : (rpm > e.idle * 1.3 ? -0.6 : 0);
+      this.P('rpm').setTargetAtTime(rpm * p, t, 0.012);
+      this.P('load').setTargetAtTime(load, t, 0.03);
+      this.P('cut').setValueAtTime(v.limiterHit > 0.045 || (v.shiftTimer > 0 && throttle > 0.1) ? 1 : 0, t);
+      this.P('gain').setTargetAtTime(1.1, t, 0.05);
+    }
     if (this.pan) this.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), t, 0.05);
     if (this.tw) { this.tw.frequency.setTargetAtTime(1800 + v.boost * 4200, t, 0.05); this.twG.gain.setTargetAtTime(v.boost * 0.035 * th, t, 0.05); }
     const slip = Math.max(v.slipRear, v.slipFront * 0.8) * Math.min(1, v.speed / 8) * (1 - gravel);
     this.sqG.gain.setTargetAtTime(Math.min(0.5, slip * 0.45) * att, t, 0.04);
     this.sqF.frequency.setTargetAtTime(900 + slip * 500 + Math.sin(t * 13) * 60, t, 0.05);
+    const da = Math.min(1, Math.abs(v.driftAngle || 0) * 2.2) * Math.min(1, v.speed / 10) * (1 - gravel);
+    this.scrG.gain.setTargetAtTime(da * 0.05 * att, t, 0.06);
+    this.scr.frequency.setTargetAtTime(760 + da * 260 + v.speed * 2, t, 0.1);
     this.grG.gain.setTargetAtTime(gravel * Math.min(1, v.speed / 15) * 0.4 * att, t, 0.05);
   }
   stop() {
     if (!this.alive) return; this.alive = false;
     const t = this.sys.ctx.currentTime;
-    this.out.gain.setTargetAtTime(0, t, 0.1); this.sqG.gain.setTargetAtTime(0, t, 0.05); this.grG.gain.setTargetAtTime(0, t, 0.05);
-    setTimeout(() => { [this.o1, this.o2, this.o3, this.lfo, this.nz, this.sq, this.gr, this.tw].forEach(o => { try { o && o.stop(); } catch { } }); try { this.out.disconnect(); this.sqG.disconnect(); this.grG.disconnect(); } catch { } }, 600);
+    this.out.gain.setTargetAtTime(0, t, 0.1); this.sqG.gain.setTargetAtTime(0, t, 0.05); this.scrG.gain.setTargetAtTime(0, t, 0.05); this.grG.gain.setTargetAtTime(0, t, 0.05);
+    setTimeout(() => { if (this.node) { try { this.node.disconnect(); } catch { } } [this.o1, this.o2, this.o3, this.lfo, this.nz, this.sq, this.gr, this.tw, this.scr, this.scrLfo].forEach(o => { try { o && o.stop(); } catch { } }); try { this.out.disconnect(); this.sqG.disconnect(); this.grG.disconnect(); } catch { } }, 600);
   }
 }
 
@@ -238,4 +300,13 @@ class Sequencer {
   stop(fade) { const c = this.sys.ctx; this.out.gain.setTargetAtTime(0, c.currentTime, fade / 3); clearInterval(this.timer); setTimeout(() => this.out.disconnect(), fade * 1000 + 200); }
 }
 
+function hashStr(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+export function layoutOf(spec) {
+  const t = spec.engine.type;
+  if (t === 'ROTARY') return 'ROTARY';
+  if (t === 'TURBO6' || t === 'NA6') return 'I6';
+  if (t === 'BOXER4' || t === 'BOXERT') return 'BOXER';
+  if (t === 'V6' || t === 'V6T') return 'V6';
+  return 'I4';
+}
 export const Audio = new AudioSys();

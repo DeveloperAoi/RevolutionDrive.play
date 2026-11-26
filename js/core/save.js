@@ -5,7 +5,8 @@
 import * as Net from '../net/firebase.js';
 import { CARS, carById, MAX_GARAGE } from '../data/cars.js';
 import { COURSES } from '../data/courses.js';
-import { normalizeCar, defaultDressV2, defaultMeter } from '../data/custom.js';
+import { normalizeCar, defaultDressV2, defaultMeter, partPrice } from '../data/custom.js';
+const partFree = (cat, id) => partPrice(cat, id) === 0;
 
 const DB_NAME = 'revolution-drive';
 const DB_VER = 1;
@@ -61,7 +62,7 @@ export function newProfile(owner) {
   return {
     id: 'P' + newId(), owner, version: 1, createdAt: now, updatedAt: now, lastPlayed: now,
     driverName: '', teamName: '', icon: 0,
-    credits: 5000, xp: 0, rp: 0, tp: 30,
+    credits: 5000, xp: 0, rp: 0, tp: 30, inventory: {},
     cars: [], activeCar: null,
     unlocked: { courses: COURSES.filter(c => !c.unlock).map(c => c.id) },
     records: {}, stats: { races: 0, wins: 0, trials: 0, km: 0, battles: 0 },
@@ -133,7 +134,15 @@ class SaveManager {
   create() { this.profile = newProfile(this.owner); return this.profile; }
   // bring older save data up to the current structure without losing anything
   migrate(p) {
-    p.tp ??= 30; p.settings ??= {}; p.settings.custTimer ??= true; p.settings.raceBgm ??= 'race'; p.flags ??= {};
+    p.tp ??= 30; p.settings ??= {}; p.inventory ??= {};
+    // grant everything already equipped / bought before the IN-STORE existed
+    for (const c of p.cars) {
+      normalizeCar(c);
+      for (const [k, v] of Object.entries(c.dress.aero || {})) if (v) p.inventory[`${k}:${v}`] = true;
+      if (c.dress.muffler !== 'stock') p.inventory[`muffler:${c.dress.muffler}`] = true;
+      for (const w of [c.dress.wheel.f, c.dress.wheel.r]) if (w.design !== 'stock5') p.inventory[`wheel:${w.design}`] = true;
+      for (const [slot, v] of Object.entries(c.dress.vinyl || {})) if (v.d !== 'none') p.inventory[`vinyl:${v.d}`] = true;
+    } p.settings.custTimer ??= true; p.settings.raceBgm ??= 'race'; p.flags ??= {};
     for (const c of p.cars) { normalizeCar(c); c.active = c.uid === p.activeCar; }
   }
 
@@ -210,6 +219,7 @@ class SaveManager {
 
   // ---- garage helpers ----
   get activeCar() { const p = this.profile; return p ? (p.cars.find(c => c.uid === p.activeCar) || p.cars[0] || null) : null; }
+  owns(cat, id) { return !this.profile || partFree(cat, id) || !!this.profile.inventory?.[`${cat}:${id}`]; }
   canAddCar() { return this.profile.cars.length < MAX_GARAGE; }
   addCar(carId) {
     if (!this.canAddCar()) return null;

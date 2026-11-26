@@ -72,13 +72,14 @@ export async function reauth(password) {
 }
 // Future: Google sign-in can be added here with GoogleAuthProvider + signInWithPopup.
 
-export async function deleteAccount(password) {
+export async function deleteAccount(password, boards = []) {
   await init(); const u = fb.auth.currentUser; if (!u) throw new Error('not signed in');
   await reauth(password);
   // remove the user's cloud saves first (rules allow owner-only deletes)
   const F = fb.F;
   const snap = await F.getDocs(F.collection(fb.db, 'users', u.uid, 'profiles'));
   for (const d of snap.docs) await F.deleteDoc(d.ref);
+  for (const b of boards) { try { await F.deleteDoc(F.doc(fb.db, 'leaderboards', b, 'entries', u.uid)); } catch { } }
   await F.deleteDoc(F.doc(fb.db, 'users', u.uid));
   await fb.A.deleteUser(u);
 }
@@ -96,4 +97,25 @@ export async function saveCloudProfile(uid, profile) {
 }
 export async function deleteCloudProfile(uid, slot) {
   await init(); const F = fb.F; await F.deleteDoc(F.doc(fb.db, 'users', uid, 'profiles', slot));
+}
+
+// ---- online leaderboards: leaderboards/{course_dir}/entries/{uid} -------------------------
+export async function submitScore(board, entry) {
+  await init(); const u = fb.auth.currentUser; if (!u) throw new Error('not signed in');
+  const F = fb.F; const ref = F.doc(fb.db, 'leaderboards', board, 'entries', u.uid);
+  const cur = await F.getDoc(ref);
+  if (cur.exists() && cur.data().time <= entry.time) return { improved: false };
+  await F.setDoc(ref, { ...entry, uid: u.uid, updatedAt: F.serverTimestamp() });
+  return { improved: true };
+}
+export async function rankOf(board, time, carId = null) {
+  await init(); const F = fb.F; const col = F.collection(fb.db, 'leaderboards', board, 'entries');
+  const q = carId ? F.query(col, F.where('carId', '==', carId), F.where('time', '<', time)) : F.query(col, F.where('time', '<', time));
+  const snap = await F.getCountFromServer(q);
+  return snap.data().count + 1;
+}
+export async function topScores(board, n = 10) {
+  await init(); const F = fb.F;
+  const snap = await F.getDocs(F.query(F.collection(fb.db, 'leaderboards', board, 'entries'), F.orderBy('time'), F.limit(n)));
+  return snap.docs.map(d => d.data());
 }

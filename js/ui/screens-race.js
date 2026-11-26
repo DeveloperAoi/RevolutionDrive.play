@@ -1,5 +1,10 @@
 // RACE (HUD, pause, touch controls) and RESULTS
-import { UI, Focus, $, $$, esc, dialog, toast, sleep, footer } from './core.js';
+import { UI, Focus, $, $$, esc, dialog, toast, sleep, footer, startTimer, stopTimer } from './core.js';
+import { backdrop, plate, consoleBox, logoMark, keyGuide } from './frame.js';
+import { tuneLevel } from './screens-menu.js';
+import { idb } from '../core/save.js';
+import * as Net from '../net/firebase.js';
+import { targetTimes } from '../game/racehud.js';
 import { App } from '../app.js';
 import { Audio } from '../audio/audio.js';
 import { Input } from '../core/input.js';
@@ -17,7 +22,7 @@ UI.register({
       <div class="rh">
         <div class="rh-band"></div><div class="rh-player"></div>
         <div class="rh-time"></div><div class="rh-rivals"></div>
-        <div class="rh-sign"></div><div class="rh-secpop"></div>
+        <div class="rh-sign"></div><div class="rh-slope"></div><div class="rh-secpop"></div>
         <div class="rh-tags"></div><div class="rh-onos"></div>
         <div class="rh-mm"><div class="rem"></div><canvas></canvas><div class="cn"></div></div>
         <div class="rh-gearbox"><div class="rh-gear"></div><div class="rh-cond"></div></div>
@@ -132,6 +137,7 @@ UI.register({
     for (const c of COURSES) if (c.unlock && !p.unlocked.courses.includes(c.id) && p.rp >= c.unlock.rp) { p.unlocked.courses.push(c.id); unlocked.push(c.jp); }
     await Save.persistNow('race-end');
     res.cars = this.race ? this.race.cars.length : 2;
+    if (this.race) { res.targets = this.race.ui ? this.race.ui.targets : targetTimes(this.race); res.weather = this.params.weather; const rv = this.race.cars.find(c => c !== this.race.player); if (rv) { res.rivalName = rv.name; res.rivalCar = rv.carName; } }
     UI.go('result', { res, prev, newRecord, ghostSaved: newRecord && res.mode === 'trial', credits, rp, tp, rankBefore, rankAfter: rankOf(p.rp), unlocked, event, params: this.params });
   },
   onAction(a) {
@@ -143,32 +149,82 @@ UI.register({
 
 UI.register({
   id: 'result',
-  build(n) { n.innerHTML = `<div class="bg-metal" style="opacity:.88"></div><div class="topbar" style="padding-left:60px"><div class="title r-title">RESULT</div><div class="jp r-course"></div></div>
-    <div class="res-head"></div><div class="res-table"></div><div class="res-btns"></div>${footer([['←→', '選択'], ['ENTER', '決定']])}`; },
+  build(n) {
+    n.innerHTML = `<div class="rs-sky"></div><div class="pp"></div>
+      <div class="bigtimer rs-tm"><b>20</b></div>
+      <div class="rs-info"></div><div class="rs-center"></div><div class="rs-right"></div><div class="rs-medals"></div><div class="rs-rew"></div>
+      <div class="rs-btns"></div><div class="cbx"></div>${logoMark()}${keyGuide([['lr', '選択'], ['ok', '決定']])}`;
+  },
   enter(d) {
-    const { res, prev, newRecord } = d; const c = courseById(res.courseId);
+    const { res, prev, newRecord } = d; const c = courseById(res.courseId); const p = Save.profile; const gc = Save.activeCar;
     Audio.playMusic('result'); Audio.stopEngines();
-    $('.r-title', this.el).textContent = res.mode === 'battle' ? 'BATTLE RESULT' : d.event ? 'EVENT RESULT' : 'TIME ATTACK RESULT';
-    $('.r-course', this.el).textContent = `${c.jp} ${c.dirs[res.dir][1]}`;
-    const head = res.mode === 'battle'
-      ? `<div class="t">${res.won ? 'YOU WIN' : 'YOU LOSE'} — ${res.position}位 / ${res.cars || 2}台</div><div class="big" style="color:${res.won ? '#ffd400' : '#ff4a4a'}">${res.won ? 'WIN!!' : 'LOSE'}</div>${res.time != null ? `<div style="font-size:44px;font-style:italic">${fmt(res.time)}</div>` : '<div style="font-size:34px;font-style:italic;color:#aaa">ライバルに大差をつけられた…</div>'}${res.advantage != null ? `<div style="font-size:34px;font-style:italic">FINAL ADVANTAGE <b style="color:${res.advantage >= 0 ? '#36c3ff' : '#ff5050'}">${res.advantage >= 0 ? '+' : ''}${res.advantage.toFixed(1)}m</b></div>` : ''}`
-      : `<div class="t">TOTAL TIME</div><div class="big">${fmt(res.time)}</div>${newRecord ? '<div class="nr">NEW RECORD!!</div>' : prev ? `<div style="font-size:40px;font-style:italic;color:#ff6a6a">${fmtDelta(res.time - prev.best)}</div>` : ''}`;
-    $('.res-head', this.el).innerHTML = head;
-    const secs = res.sections.map((t, i) => { const b = prev?.sections?.[i]; return `<div class="r"><span>SECTION ${i + 1}</span><span>${fmt(t)} ${b != null ? `<span class="${t < b ? 'g' : ''}" style="color:${t < b ? '#3dff8a' : '#ff6a6a'};font-size:22px">${fmtDelta(t - b)}</span>` : ''}</span></div>`; }).join('');
-    const ev = d.event ? `<div class="r"><span>EVENT</span><span class="${d.event.cleared ? 'g' : ''}">${d.event.cleared ? 'CLEAR!' : 'FAILED'} (目標 ${fmt(d.params.event.target)})</span></div>` : '';
-    $('.res-table', this.el).innerHTML = `
-      <div class="res-box"><h3>SECTION TIMES</h3>${secs || '<div class="r"><span>—</span></div>'}<div class="r"><span>PERSONAL BEST</span><span class="y">${fmt(Save.profile.records[`${res.courseId}:${res.dir}`]?.best)}</span></div>${prev ? `<div class="r"><span>前回ベストとの差</span><span style="color:${res.time != null && res.time < prev.best ? '#3dff8a' : '#ff6a6a'}">${res.time != null ? fmtDelta(res.time - prev.best) : '—'}</span></div>` : ''}${d.ghostSaved ? '<div class="r"><span>GHOST</span><span class="g">ゴーストを保存しました</span></div>' : ''}<div class="r"><span>CONDITION</span><span>${Math.round(res.condition ?? 100)}%</span></div></div>
-      <div class="res-box"><h3>REWARDS</h3>${ev}<div class="r"><span>CREDITS</span><span class="y">+¥${d.credits.toLocaleString()}</span></div><div class="r"><span>RANK POINT</span><span class="g">+${d.rp} RP</span></div><div class="r"><span>TUNE POINT</span><span class="g">+${d.tp} pts.</span></div>
-        <div class="r"><span>RANK</span><span>${d.rankBefore.label} → <b style="color:#ffd400">${d.rankAfter.label}</b></span></div><div class="xpbar"><i style="width:0"></i></div>
-        ${d.unlocked.length ? `<div class="r"><span>UNLOCK</span><span class="g">${d.unlocked.join(', ')} 解放!</span></div>` : ''}
-        <div class="r"><span>TOTAL</span><span class="y">¥${Save.profile.credits.toLocaleString()}</span></div></div>`;
-    setTimeout(() => { const x = $('.xpbar i', this.el); if (x) x.style.width = (d.rankAfter.progress * 100) + '%'; }, 200);
-    if (d.rankAfter.label !== d.rankBefore.label) setTimeout(() => { toast(`RANK UP!! ${d.rankAfter.label}`); Audio.ui('start'); }, 900);
-    const btns = d.params.event ? [['RETRY', 'retry', 'primary'], ['EVENT LIST', 'special', ''], ['MODE SELECT', 'mode', 'dark']] : [['RETRY', 'retry', 'primary'], ['COURSE SELECT', 'course', ''], ['GARAGE / TUNING', 'garage', ''], ['MODE SELECT', 'mode', 'dark']];
-    $('.res-btns', this.el).innerHTML = btns.map(([l, a, c]) => `<button class="btn ${c}" data-a="${a}">${l}</button>`).join('');
-    this.d = d;
-    this.focus = new Focus($$('.res-btns .btn', this.el), { axis: 'h', onSelect: (i, b) => { Audio.ui('ok'); const a = b.dataset.a; if (a === 'retry') UI.go('race', d.params); else UI.go(a); } });
-    if (newRecord) Audio.ui('coin');
+    // scenic backdrop: the course itself, slowly flown over
+    import('../game/gfx.js').then(({ CoursePreview }) => { if (UI.current !== this) return; App.coursePreview ||= new CoursePreview(App.gfx); App.coursePreview.show(res.courseId, res.dir, res.weather || c.weather); App.gfx.setView(App.coursePreview); });
+    App.gfx.setView(null);
+    $('.pp', this.el).innerHTML = plate(); $('.cbx', this.el).innerHTML = consoleBox();
+    const battle = res.mode === 'battle';
+    $('.rs-info', this.el).innerHTML = `<div class="hd">レース情報</div><div class="v">${c.jp} / ${c.dirs[res.dir][1]} / ${c.time === 'night' ? '夜' : c.time === 'dusk' ? '夕方' : '昼'}${res.weather === 'rain' ? ' / 雨' : ''}</div>
+      <div class="car">${esc(gc.name)} <span>${gc.drive}</span> <span>${tuneLevel(gc)}</span></div>`;
+    // right: goal & section times
+    const secs = res.sections.map((t, i) => { const split = t - (i ? res.sections[i - 1] : 0); const b = prev?.sections; const bs = b && b[i] != null ? b[i] - (i ? b[i - 1] : 0) : null; return `<div class="sr"><i>${i + 1}</i><b>${fmt(split)}</b><em class="${bs == null ? '' : split <= bs ? 'fast' : 'slow'}">${bs == null ? '(-\'--"---)' : '(' + fmtDelta(split - bs) + ')'}</em></div>`; }).join('');
+    $('.rs-right', this.el).innerHTML = `<div class="hd">ゴールタイム</div><div class="gt">${fmt(res.time)}</div><div class="gd ${prev && res.time != null ? (res.time < prev.best ? 'fast' : 'slow') : ''}">${prev && res.time != null ? '(' + fmtDelta(res.time - prev.best) + ')' : '(-\'--"---)'}</div>
+      <div class="hd" style="margin-top:22px">セクションタイム</div>${secs}`;
+    // centre: evaluation tier (time attack) or WIN/LOSE (battle)
+    const T = (res.targets || []).slice().reverse(); // ROOKIE → LEGEND
+    let html;
+    if (!battle) {
+      const got = res.time != null ? T.filter(t => res.time <= t.time) : [];
+      const tier = got.length ? got[got.length - 1] : null; const next = T[got.length] || null;
+      const prevTier = prev ? T.filter(t => prev.best <= t.time).length : 0;
+      html = `<div class="sub">${newRecord ? 'Your Record updated!' : 'Time Attack Result'}</div><div class="title ${newRecord ? 'gold' : ''}">${newRecord ? '自己ベスト更新' : (res.time != null ? 'GOAL' : 'RETIRE')}</div>
+        <div class="tier"><small>TIME ATTACK</small><b>${tier ? tier.name : 'NO RANK'}</b>${got.length > prevTier ? '<i class="new">New</i>' : ''}</div>
+        <div class="track">${T.map((t, i) => `<span class="${i < got.length ? 'on' : ''}">${t.name}</span>${i < T.length - 1 ? '<em>▶</em>' : ''}`).join('')}</div>
+        <div class="tg"><span>目標タイム</span><b>${tier ? fmt(tier.time) : (T[0] ? fmt(T[0].time) : '-')}</b><i>${tier ? 'クリア!' : '未達成'}</i></div>
+        <div class="tg"><span>次の評価タイム</span><b>${next ? fmt(next.time) : '— 最高評価 —'}</b></div>`;
+    } else {
+      html = `<div class="sub">Course Battle Result</div><div class="title ${res.won ? 'gold' : 'lose'}">${res.won ? 'WIN!!' : 'LOSE'}</div>
+        <div class="vs"><div class="me"><b>${esc(p.driverName)}</b><small>${esc(gc.name)}</small></div><em>VS</em><div class="op"><b>${esc(res.rivalName || 'RIVAL')}</b><small>${esc(res.rivalCar || '')}</small></div></div>
+        <div class="tg"><span>最終順位</span><b>${res.position} / ${res.cars || 2}</b></div>
+        <div class="tg"><span>FINAL ADVANTAGE</span><b class="${(res.advantage ?? 0) >= 0 ? 'fast' : 'slow'}">${res.advantage != null ? (res.advantage >= 0 ? '+' : '') + res.advantage.toFixed(1) + 'm' : '—'}</b></div>`;
+    }
+    $('.rs-center', this.el).innerHTML = html;
+    $('.rs-rew', this.el).innerHTML = `<span>CREDITS <b>+¥${d.credits.toLocaleString()}</b></span><span>RP <b>+${d.rp}</b></span><span>TUNE POINT <b>+${d.tp}</b></span><span>RANK <b>${d.rankBefore.label} → ${d.rankAfter.label}</b></span>${d.unlocked.length ? `<span>UNLOCK <b>${d.unlocked.join(', ')}</b></span>` : ''}${d.ghostSaved ? '<span><b>GHOST SAVED</b></span>' : ''}`;
+    // rankings (time attack only)
+    const medals = $('.rs-medals', this.el);
+    if (!battle && res.time != null) {
+      medals.innerHTML = [['店内ランキング', 'local', '🏁'], ['車種別ランキング', 'car', '🚗'], ['総合ランキング', 'world', '🌐']].map(([l, k, ic]) => `<div class="md" data-k="${k}"><i>${ic}</i><div><small>${l}</small><b>…</b></div></div>`).join('');
+      this.rankings(res, gc);
+    } else medals.innerHTML = '';
+    // buttons
+    const btns = d.params.event ? [['RETRY', 'retry'], ['EVENT LIST', 'special'], ['MODE SELECT', 'mode']] : [['次へ(コース選択)', 'course'], ['RETRY', 'retry'], ['GARAGE', 'garage'], ['MODE SELECT', 'mode']];
+    $('.rs-btns', this.el).innerHTML = btns.map(([l, a], i) => `<div class="mtile ${i ? 'k' : 'y'}" data-a="${a}" style="width:250px;height:84px;font-size:24px">${l}</div>`).join('');
+    const tiles = $$('.rs-btns .mtile', this.el);
+    this.focus = new Focus(tiles, { axis: 'h', onSelect: (i, b) => { stopTimer(); Audio.ui('ok'); const a = b.dataset.a; if (a === 'retry') UI.go('race', d.params); else UI.go(a); } });
+    const ap = this.focus.apply.bind(this.focus); this.focus.apply = () => { ap(); tiles.forEach((t, k) => t.classList.toggle('sel', k === this.focus.i)); }; this.focus.apply();
+    // staged reveal with matching SE
+    this.el.classList.remove('reveal'); void this.el.offsetWidth; this.el.classList.add('reveal');
+    [300, 900, 1500, 2100].forEach((t, i) => setTimeout(() => { if (UI.current === this) Audio.ui(i === 1 && newRecord ? 'coin' : i === 3 ? 'start' : 'section'); }, t));
+    if (d.rankAfter.label !== d.rankBefore.label) setTimeout(() => toast(`RANK UP!! ${d.rankAfter.label}`), 2500);
+    startTimer($('.rs-tm', this.el), 20, () => this.focus.select());
+  },
+  leave() { stopTimer(); },
+  async rankings(res, gc) {
+    const key = `${res.courseId}:${res.dir}`;
+    const set = (k, txt) => { const n = this.el.querySelector(`.md[data-k="${k}"] b`); if (n) n.textContent = txt; };
+    try {
+      const all = (await idb.all('profiles')).map(r => r.data).filter(pp => pp.records && pp.records[key]);
+      const times = all.map(pp => pp.records[key].best).sort((a, b) => a - b);
+      set('local', `${times.filter(t => t < res.time - 1e-6).length + 1}位 / ${Math.max(1, times.length)}`);
+      const cars = all.filter(pp => pp.records[key].carId === gc.carId).map(pp => pp.records[key].best);
+      set('car', `${cars.filter(t => t < res.time - 1e-6).length + 1}位`);
+    } catch (e) { set('local', '—'); set('car', '—'); }
+    if (Save.mode !== 'account' || !Net.isConfigured()) { set('world', '要ログイン'); return; }
+    try {
+      const board = `${res.courseId}_${res.dir}`; const best = Save.profile.records[key]?.best ?? res.time;
+      await Net.submitScore(board, { time: best, name: Save.profile.driverName, team: Save.profile.teamName, carId: gc.carId, carName: gc.name });
+      set('world', `${await Net.rankOf(board, best)}位`);
+      set('car', `${await Net.rankOf(board, best, gc.carId)}位`);
+    } catch (e) { console.warn(e); set('world', '通信エラー'); }
   },
   onAction(a) { if (a === 'back') return; this.focus.action(a); },
 });

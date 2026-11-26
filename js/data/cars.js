@@ -1,5 +1,5 @@
 // REVOLUTION DRIVE — vehicle catalogue
-import { TUNE_PARTS_V2 } from './custom.js';
+import { TUNE_PARTS_V2, partEffects } from './custom.js';
 // All manufacturers, model names and designs are ORIGINAL to this game.
 // No real-world brand, badge or body design is reproduced.
 
@@ -8,7 +8,8 @@ export const MAKERS = {
   RYUJIN:   { name: 'RYUJIN',   jp: '龍神モータース', color: '#ffb300' },
   SORAWORKS:{ name: 'SORA WORKS', jp: 'ソラワークス', color: '#3bb3ff' },
   TSUBAME:  { name: 'TSUBAME',  jp: 'ツバメ工業', color: '#7dff5a' },
-  KUROGANE: { name: 'KUROGANE', jp: '鉄重工', color: '#c0c0c0' },
+  KUROGANE: { name: 'KUROGANE', jp: '鉄重工', color: '#8a8f98' },
+  AOBA:     { name: 'AOBA', jp: '青葉モータース', color: '#1a5ad0' },
 };
 
 // torque curve: [rpm, fraction of peak torque]
@@ -18,7 +19,7 @@ export const CARS = [
     id: 'kaze_rs', disp: 1587, category: 'LIGHTWEIGHT', catJp: 'ライトウェイト', maker: 'KAZEMOTO', name: 'KAZE RS', jp: 'カゼ RS', year: 1986, price: 0,
     desc: '軽さが武器の小型FRクーペ。非力だが、峠では誰よりも素直に曲がる。',
     drive: 'FR', mass: 950, wheelbase: 2.40, cgHeight: 0.48, weightFront: 0.53,
-    body: { len: 4.20, wid: 1.63, hgt: 1.33, style: 'hatch' },
+    body: { len: 4.20, wid: 1.63, hgt: 1.33, style: 'hatch', shape: 'retroHatch', head: 'popup', tail: 'bar' },
     engine: { type: 'NA4', cyl: 4, hp: 130, torque: 149, idle: 900, redline: 7600, limiter: 7800,
       curve: [[800, .55], [3000, .80], [5200, 1.0], [6600, .96], [7800, .78]], inertia: 1.0 },
     gears: [3.59, 2.02, 1.38, 1.00, 0.86], final: 4.30, reverse: 3.48,
@@ -29,7 +30,7 @@ export const CARS = [
     id: 'tsubame_f', disp: 1797, category: 'TECHNICAL', catJp: 'テクニカル', maker: 'TSUBAME', name: 'TSUBAME TYPE-F', jp: 'ツバメ タイプF', year: 1998, price: 18000,
     desc: '高回転VTEC風NAを積むFFホットハッチ。立ち上がりの鋭さは本物。',
     drive: 'FF', mass: 1080, wheelbase: 2.62, cgHeight: 0.50, weightFront: 0.62,
-    body: { len: 4.18, wid: 1.70, hgt: 1.36, style: 'hatch' },
+    body: { len: 4.18, wid: 1.70, hgt: 1.36, style: 'hatch', shape: 'hotHatch', head: 'slim', tail: 'bar', features: ['scoop'] },
     engine: { type: 'NA4HR', cyl: 4, hp: 200, torque: 196, idle: 1000, redline: 8600, limiter: 8800,
       curve: [[1000, .55], [4000, .78], [5800, .86], [7400, 1.0], [8800, .86]], inertia: 0.85 },
     gears: [3.23, 2.10, 1.46, 1.11, 0.88, 0.73], final: 4.40, reverse: 3.0,
@@ -40,7 +41,7 @@ export const CARS = [
     id: 'kurogane_s2', disp: 1997, category: 'BALANCE', catJp: 'バランス', maker: 'KUROGANE', name: 'KUROGANE S-II', jp: 'クロガネ S-II', year: 1999, price: 26000,
     desc: '50:50の前後重量配分を持つ2シーターFRロードスター。ドリフトの教科書。',
     drive: 'FR', mass: 1150, wheelbase: 2.40, cgHeight: 0.46, weightFront: 0.50,
-    body: { len: 4.14, wid: 1.75, hgt: 1.28, style: 'roadster' },
+    body: { len: 4.14, wid: 1.75, hgt: 1.28, style: 'roadster', shape: 'roadster', head: 'slim', tail: 'bar' },
     engine: { type: 'NA4HR', cyl: 4, hp: 250, torque: 218, idle: 900, redline: 8800, limiter: 9000,
       curve: [[900, .55], [4000, .80], [6800, 1.0], [8000, .95], [9000, .82]], inertia: 0.9 },
     gears: [3.13, 2.05, 1.48, 1.16, 0.97, 0.81], final: 4.10, reverse: 2.86,
@@ -51,7 +52,7 @@ export const CARS = [
     id: 'ryujin_r7', disp: 1308, category: 'ROTARY', catJp: 'ロータリー', maker: 'RYUJIN', name: 'RYUJIN R-7', jp: 'リュウジン R-7', year: 1992, price: 32000,
     desc: 'ツインローター・シーケンシャルツインターボ。甲高いロータリーサウンドで峠を切り裂くFR。',
     drive: 'FR', mass: 1260, wheelbase: 2.43, cgHeight: 0.46, weightFront: 0.51,
-    body: { len: 4.29, wid: 1.76, hgt: 1.23, style: 'coupe' },
+    body: { len: 4.29, wid: 1.76, hgt: 1.23, style: 'coupe', shape: 'curvyCoupe', head: 'lowslim', tail: 'round' },
     engine: { type: 'ROTARY', cyl: 2, hp: 280, torque: 294, idle: 1000, redline: 8000, limiter: 8200,
       curve: [[1000, .45], [3000, .78], [5000, 1.0], [6500, .95], [8200, .80]], inertia: 0.75 },
     gears: [3.48, 2.02, 1.39, 1.00, 0.72], final: 4.10, reverse: 3.29,
@@ -62,7 +63,7 @@ export const CARS = [
     id: 'sora_gt4', disp: 2568, category: 'POWER', catJp: 'パワー', maker: 'SORAWORKS', name: 'SORA GT-4', jp: 'ソラ GT-4', year: 1999, price: 42000,
     desc: '直6ツインターボと電子制御4WD。圧倒的なトラクションで全てをねじ伏せる。',
     drive: '4WD', split: 0.35, mass: 1540, wheelbase: 2.67, cgHeight: 0.50, weightFront: 0.56,
-    body: { len: 4.60, wid: 1.79, hgt: 1.36, style: 'coupe' },
+    body: { len: 4.60, wid: 1.79, hgt: 1.36, style: 'coupe', shape: 'gtCoupe', head: 'big', tail: 'round' },
     engine: { type: 'TURBO6', cyl: 6, hp: 330, torque: 392, idle: 900, redline: 7800, limiter: 8000,
       curve: [[900, .40], [2500, .70], [4400, 1.0], [6000, .97], [8000, .78]], inertia: 1.1 },
     gears: [3.83, 2.36, 1.69, 1.31, 1.00, 0.79], final: 3.55, reverse: 3.29,
@@ -73,12 +74,100 @@ export const CARS = [
     id: 'kazemoto_ev9', disp: 1997, category: 'TRACTION', catJp: 'トラクション', maker: 'KAZEMOTO', name: 'KAZE RALLY EV-9', jp: 'カゼ ラリー EV-9', year: 2005, price: 38000,
     desc: 'WRC直系のターボ4WDセダン。どんな路面でも牙を剥く。',
     drive: '4WD', split: 0.45, mass: 1400, wheelbase: 2.62, cgHeight: 0.52, weightFront: 0.58,
-    body: { len: 4.49, wid: 1.77, hgt: 1.45, style: 'sedan' },
+    body: { len: 4.49, wid: 1.77, hgt: 1.45, style: 'sedan', shape: 'rallySedan', head: 'big', tail: 'bar', features: ['scoop'] },
     engine: { type: 'TURBO4', cyl: 4, hp: 300, torque: 400, idle: 900, redline: 7200, limiter: 7500,
       curve: [[900, .40], [2800, .85], [3600, 1.0], [5500, .92], [7500, .70]], inertia: 1.0 },
     gears: [2.86, 1.92, 1.36, 1.05, 0.83, 0.66], final: 4.53, reverse: 3.0,
     tire: { grip: 1.06, radius: 0.32, width: 235 }, brake: 1.12, steerLock: 0.60, downforce: 0.20,
     sound: { pitch: 0.95, rasp: 0.85, turbo: true },
+  },
+  {
+    id: 'sylph_180x', disp: 1809, category: 'DRIFT', catJp: 'ドリフト', maker: 'KAZEMOTO', name: 'SYLPH 180X', jp: 'シルフ 180X', year: 1989, price: 16000,
+    desc: '軽量ターボFRのノッチバッククーペ。リトラクタブルライトのドリフト入門機。',
+    drive: 'FR', mass: 1180, wheelbase: 2.47, cgHeight: 0.48, weightFront: 0.55,
+    body: { len: 4.52, wid: 1.69, hgt: 1.29, style: 'coupe', shape: 'notchCoupe', head: 'popup', tail: 'full' },
+    engine: { type: 'TURBO4', cyl: 4, hp: 205, torque: 274, idle: 850, redline: 7000, limiter: 7300,
+      curve: [[850, .45], [2500, .80], [4000, 1.0], [5800, .92], [7300, .70]], inertia: 1.0 },
+    gears: [3.32, 1.90, 1.31, 1.00, 0.81], final: 4.08, reverse: 3.38,
+    tire: { grip: 1.0, radius: 0.30, width: 205 }, brake: 1.0, steerLock: 0.66, downforce: 0.05, cda: 0.70,
+    sound: { pitch: 1.0, rasp: 0.75, turbo: true },
+  },
+  {
+    id: 'sylph_specr', disp: 1998, category: 'DRIFT', catJp: 'ドリフト', maker: 'KAZEMOTO', name: 'SYLPH SPEC-R', jp: 'シルフ スペックR', year: 1999, price: 30000,
+    desc: '6速ターボFRの最終進化型。シャープな切れ味と高いコントロール性を両立。',
+    drive: 'FR', mass: 1240, wheelbase: 2.53, cgHeight: 0.47, weightFront: 0.55,
+    body: { len: 4.45, wid: 1.70, hgt: 1.29, style: 'coupe', shape: 'sleekCoupe', head: 'slim', tail: 'bar' },
+    engine: { type: 'TURBO4', cyl: 4, hp: 250, torque: 275, idle: 850, redline: 7400, limiter: 7700,
+      curve: [[850, .45], [2600, .82], [4800, 1.0], [6400, .92], [7700, .72]], inertia: 0.95 },
+    gears: [3.32, 1.90, 1.31, 1.00, 0.86, 0.73], final: 4.08, reverse: 3.38,
+    tire: { grip: 1.04, radius: 0.31, width: 225 }, brake: 1.08, steerLock: 0.66, downforce: 0.12, cda: 0.66,
+    sound: { pitch: 1.05, rasp: 0.7, turbo: true },
+  },
+  {
+    id: 'ryujin_r5', disp: 1308, category: 'ROTARY', catJp: 'ロータリー', maker: 'RYUJIN', name: 'RYUJIN R-5', jp: 'リュウジン R-5', year: 1989, price: 20000,
+    desc: '先代ロータリーターボ。ウェッジシェイプとリトラが光る、軽快なFR。',
+    drive: 'FR', mass: 1220, wheelbase: 2.43, cgHeight: 0.47, weightFront: 0.51,
+    body: { len: 4.32, wid: 1.69, hgt: 1.27, style: 'coupe', shape: 'wedgeCoupe', head: 'popup', tail: 'bar' },
+    engine: { type: 'ROTARY', cyl: 2, hp: 205, torque: 270, idle: 950, redline: 7500, limiter: 7800,
+      curve: [[950, .45], [2800, .78], [4500, 1.0], [6200, .93], [7800, .78]], inertia: 0.75 },
+    gears: [3.48, 2.02, 1.39, 1.00, 0.76], final: 4.10, reverse: 3.04,
+    tire: { grip: 1.02, radius: 0.30, width: 205 }, brake: 1.02, steerLock: 0.63, downforce: 0.08, cda: 0.64,
+    sound: { pitch: 0.95, rasp: 0.95, turbo: true },
+  },
+  {
+    id: 'sora_gt3', disp: 2568, category: 'POWER', catJp: 'パワー', maker: 'SORAWORKS', name: 'SORA GT-3', jp: 'ソラ GT-3', year: 1989, price: 36000,
+    desc: '直6ツインターボ+電子制御4WDを初搭載した初代モンスター。コンパクトで俊敏。',
+    drive: '4WD', split: 0.3, mass: 1430, wheelbase: 2.62, cgHeight: 0.50, weightFront: 0.58,
+    body: { len: 4.55, wid: 1.76, hgt: 1.34, style: 'coupe', shape: 'compactGT', head: 'rect', tail: 'round' },
+    engine: { type: 'TURBO6', cyl: 6, hp: 290, torque: 360, idle: 900, redline: 7600, limiter: 8000,
+      curve: [[900, .40], [2500, .72], [4400, 1.0], [6000, .96], [8000, .76]], inertia: 1.05 },
+    gears: [3.21, 1.93, 1.30, 1.00, 0.75], final: 4.11, reverse: 3.51,
+    tire: { grip: 1.05, radius: 0.31, width: 225 }, brake: 1.1, steerLock: 0.58, downforce: 0.18, cda: 0.70,
+    sound: { pitch: 0.95, rasp: 0.65, turbo: true },
+  },
+  {
+    id: 'sora_gt5', disp: 2568, category: 'POWER', catJp: 'パワー', maker: 'SORAWORKS', name: 'SORA GT-5', jp: 'ソラ GT-5', year: 2001, price: 52000,
+    desc: '直6シリーズ最終型。角張ったボディと大型ウイングで最高速域の安定感は随一。',
+    drive: '4WD', split: 0.35, mass: 1560, wheelbase: 2.67, cgHeight: 0.50, weightFront: 0.55,
+    body: { len: 4.60, wid: 1.79, hgt: 1.36, style: 'coupe', shape: 'angularGT', head: 'angular', tail: 'round', features: ['wing'] },
+    engine: { type: 'TURBO6', cyl: 6, hp: 345, torque: 400, idle: 900, redline: 7800, limiter: 8100,
+      curve: [[900, .40], [2500, .72], [4400, 1.0], [6200, .97], [8100, .78]], inertia: 1.1 },
+    gears: [3.83, 2.36, 1.69, 1.31, 1.00, 0.79], final: 3.55, reverse: 3.28,
+    tire: { grip: 1.09, radius: 0.32, width: 245 }, brake: 1.18, steerLock: 0.58, downforce: 0.30, cda: 0.69,
+    sound: { pitch: 0.92, rasp: 0.7, turbo: true },
+  },
+  {
+    id: 'kurogane_supreme', disp: 2997, category: 'GT', catJp: 'グランツーリスモ', maker: 'KUROGANE', name: 'KUROGANE SUPREME', jp: 'クロガネ スプリーム', year: 1997, price: 48000,
+    desc: '3.0L直6ツインターボの丸みを帯びたFR-GT。チューニング次第で青天井のパワー。',
+    drive: 'FR', mass: 1510, wheelbase: 2.55, cgHeight: 0.49, weightFront: 0.54,
+    body: { len: 4.52, wid: 1.81, hgt: 1.28, style: 'coupe', shape: 'longGT', head: 'oval', tail: 'roundBig', features: ['hoopwing'] },
+    engine: { type: 'TURBO6', cyl: 6, hp: 330, torque: 451, idle: 800, redline: 6800, limiter: 7100,
+      curve: [[800, .42], [2200, .78], [3600, 1.0], [5200, .95], [7100, .74]], inertia: 1.15 },
+    gears: [3.83, 2.36, 1.69, 1.31, 1.00, 0.79], final: 3.27, reverse: 3.28,
+    tire: { grip: 1.07, radius: 0.32, width: 245 }, brake: 1.15, steerLock: 0.60, downforce: 0.20, cda: 0.66,
+    sound: { pitch: 0.88, rasp: 0.6, turbo: true },
+  },
+  {
+    id: 'tsubame_86n', disp: 2387, category: 'LIGHTWEIGHT', catJp: 'ライトウェイト', maker: 'TSUBAME', name: 'TSUBAME 86 NEXT', jp: 'ツバメ 86ネクスト', year: 2021, price: 28000,
+    desc: '水平対向NAを低く積んだ現代のFRスポーツ。低重心で素直な挙動が魅力。',
+    drive: 'FR', mass: 1270, wheelbase: 2.575, cgHeight: 0.46, weightFront: 0.53,
+    body: { len: 4.27, wid: 1.78, hgt: 1.31, style: 'coupe', shape: 'modernCoupe', head: 'swept', tail: 'bar' },
+    engine: { type: 'BOXER4', cyl: 4, hp: 235, torque: 250, idle: 800, redline: 7400, limiter: 7600,
+      curve: [[800, .55], [3000, .82], [3700, 1.0], [6000, .95], [7600, .82]], inertia: 0.9 },
+    gears: [3.63, 2.19, 1.54, 1.21, 1.00, 0.77], final: 4.30, reverse: 3.44,
+    tire: { grip: 1.03, radius: 0.31, width: 215 }, brake: 1.08, steerLock: 0.64, downforce: 0.10, cda: 0.64,
+    sound: { pitch: 1.0, rasp: 0.55, turbo: false },
+  },
+  {
+    id: 'aoba_skybolt', disp: 1994, category: 'TRACTION', catJp: 'トラクション', maker: 'AOBA', name: 'AOBA SKYBOLT 4', jp: 'アオバ スカイボルト4', year: 2004, price: 40000,
+    desc: '水平対向ターボ×シンメトリカル4WDのラリーセダン。独特の鼓動とボンネットの大型スクープ。',
+    drive: '4WD', split: 0.41, mass: 1440, wheelbase: 2.53, cgHeight: 0.50, weightFront: 0.59,
+    body: { len: 4.47, wid: 1.74, hgt: 1.42, style: 'sedan', shape: 'rallySedan2', head: 'big', tail: 'round', features: ['scoop', 'wing'] },
+    engine: { type: 'BOXERT', cyl: 4, hp: 300, torque: 407, idle: 850, redline: 7600, limiter: 8000,
+      curve: [[850, .40], [2800, .80], [4400, 1.0], [6000, .92], [8000, .70]], inertia: 1.0 },
+    gears: [3.64, 2.24, 1.52, 1.13, 0.92, 0.75], final: 3.90, reverse: 3.55,
+    tire: { grip: 1.06, radius: 0.32, width: 235 }, brake: 1.12, steerLock: 0.60, downforce: 0.20, cda: 0.72,
+    sound: { pitch: 0.9, rasp: 0.8, turbo: true },
   },
 ];
 
@@ -97,7 +186,7 @@ export const TUNE_PARTS = {
 };
 
 // produce effective spec from base + tune levels (v2: Lv.0-5 per part) + setup sliders
-export function buildSpec(base, tune = {}, setup = {}) {
+export function buildSpec(base, tune = {}, setup = {}, dress = null) {
   if (tune && !tune.v2) { // legacy/simple tune objects (CPU cars, old saves)
     const m = { engine: ['power', 'ecu'], turbo: ['intake', 'turbo'], weight: ['weight'], tires: ['tire', 'compound'], suspension: ['susp', 'camber'], brakes: ['brake'], gearbox: ['trans'] };
     const t = { v2: true }; for (const [k, ids] of Object.entries(m)) if (tune[k]) ids.forEach(id => t[id] = Math.min(5, Math.round(tune[k] * 5 / 3))); tune = t;
@@ -109,14 +198,19 @@ export function buildSpec(base, tune = {}, setup = {}) {
     if (p.turboOnly && !base.sound.turbo) continue;
     for (const [k, v] of Object.entries(p.fx)) fx[k] += v * lv;
   }
-  const powerMul = 1 + fx.power / 100;
+  const pf = partEffects(dress, base);
+  const powerMul = 1 + (fx.power + pf.power) / 100;
   s.engine.hp = Math.round(base.engine.hp * powerMul);
   s.engine.torque = Math.round(base.engine.torque * powerMul);
   s.engine.redline += fx.rev; s.engine.limiter += fx.rev;
-  s.mass = Math.round(base.mass * (1 - fx.weight / 100));
-  s.tire.grip = base.tire.grip * (1 + fx.grip / 100);
-  s.brake = base.brake * (1 + fx.brake / 100);
-  s.suspensionLevel = fx.handling / 5;          // 0..5 → tyre stiffness / load sensitivity
+  s.mass = Math.round(base.mass * (1 - fx.weight / 100) + pf.mass);
+  s.tire.grip = base.tire.grip * (1 + fx.grip / 100 + pf.grip);
+  s.brake = base.brake * (1 + fx.brake / 100 + pf.brake);
+  s.suspensionLevel = fx.handling / 5 + pf.susp;
+  s.downforce = (base.downforce || 0) + pf.downforce;
+  s.cda = (base.cda || 0.68) + pf.cda;
+  s.cgHeight = base.cgHeight + pf.cg;
+  s.partFx = pf;          // 0..5 → tyre stiffness / load sensitivity
   s.stability = fx.stab;                         // 0..~22 → yaw damping in slides
   s.traction = fx.traction;                      // 0..5 → keeps rear lateral grip under wheelspin
   s.steerResp = fx.steer;                        // 0..5 → steering speed
