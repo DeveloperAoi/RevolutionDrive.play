@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { MUFFLERS, RIDE_HEIGHTS } from '../data/cars.js';
 import { WHEEL_DESIGNS, normalizeCar } from '../data/custom.js';
 import * as TX from './textures.js';
+import { createGlbCar, packReady } from './glbCar.js';
 
 // normalised side profiles: x from rear (-0.5) to front (+0.5), y as fraction of body height
 const PROFILES = {
@@ -43,6 +44,7 @@ const PROFILES = {
 
 let envMap = null;
 export function setEnvMap(e) { envMap = e; }
+export const getEnvMap = () => envMap;
 
 export function buildEnvMap(renderer) {
   // small studio/night environment for reflections
@@ -205,6 +207,7 @@ const decalMat = (tex) => new THREE.MeshStandardMaterial({ map: tex, transparent
 // ---- car ---------------------------------------------------------------------------
 export function createCar(spec, dressIn = {}, opts = {}) {
   const dress = dressIn && dressIn.v2 ? dressIn : normalizeCar({ dress: dressIn || {} }).dress;
+  if (spec.model && spec.model.pack && packReady(spec.model.pack)) { const g = createGlbCar(spec, dress, opts); if (g) return g; }
   const A = dress.aero || {};
   const b = spec.body;
   const len = b.len, hgt = b.hgt;

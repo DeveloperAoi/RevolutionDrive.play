@@ -173,7 +173,7 @@ export function normalizeCar(gc, spec) {
     const wheelMap = { stock: ['stock5', '#c9ccd0'], mesh: ['hs_mesh', '#c9ccd0'], gold6: ['ts_6', '#d4a017'], black8: ['ob_10', '#161616'], white12: ['ob_multi', '#f2f2f2'] }[d.wheel] || ['stock5', '#c9ccd0'];
     gc.dress = {
       v2: true,
-      color: d.color && d.color.hex ? { hex: d.color.hex, finish: d.color.finish || 'metallic' } : { hex: paintHex, finish: 'metallic' },
+      color: d.color && d.color.hex ? { hex: d.color.hex, finish: d.color.finish || 'metallic' } : { hex: paintHex, finish: paintHex === '#f2f2ef' ? 'gloss' : 'metallic' },
       vinyl: { side: { d: d.decal === 'side' ? 'flame' : d.decal === 'number' ? 'number' : d.decal === 'rd' ? 'logo' : 'none', x: 0, y: 0, s: 1, r: 0 }, hood: { d: 'none', x: 0, y: 0, s: 1, r: 0 }, rear: { d: 'none', x: 0, y: 0, s: 1, r: 0 }, stripe: { d: d.decal === 'stripe' ? 'twin' : 'none', x: 0, y: 0, s: 1, r: 0 } },
       aero: { diffuser: 0, intake: 0, intercooler: 0, calipers: 0, suspkit: 0, fspoiler: d.aero !== 'stock' && d.aero ? 1 : 0, flip: d.aero !== 'stock' && d.aero ? 1 : 0, side: d.aero !== 'stock' && d.aero ? 1 : 0, rbumper: 0, rspoiler: d.spoiler === 'duck' ? 1 : 0, wing: d.spoiler === 'mid' ? 1 : d.spoiler === 'gt' ? 2 : 0, bonnet: 0, canard: 0, fender: d.aero === 'wide' ? 2 : 0 },
       wheel: { f: { design: wheelMap[0], color: wheelMap[1], rim: wheelMap[1], size: 16, offset: 0 }, r: { design: wheelMap[0], color: wheelMap[1], rim: wheelMap[1], size: 16, offset: 0 }, link: true, tire: 'normal' },

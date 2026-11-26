@@ -9,12 +9,14 @@ import './ui/screens-start.js';
 import './ui/screens-menu.js';
 import './ui/screens-garage.js';
 import './ui/screens-race.js';
+import { preloadPacks } from './data/glbcars.js';
 
 function boot() {
   fitStage(); addEventListener('resize', fitStage);
   Input.init();
   App.gfx = new Gfx(document.getElementById('gl'));
   App.applySettings();
+  preloadPacks();
   Save.on(() => refreshSync());
   // first user gesture unlocks audio (browser autoplay policy)
   const unlock = () => { Audio.unlock(); App.applySettings(); };

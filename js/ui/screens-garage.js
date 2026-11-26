@@ -184,7 +184,7 @@ UI.register({
     const strip = $('.cs-strip', this.el);
     strip.innerHTML = '<i class="mk l"></i>' + this.list.map(c => {
       const owned = Save.profile.cars.some(g => g.carId === c.id);
-      return `<div class="scard" style="background:linear-gradient(180deg,#3a3e46,#15171b)"><img src="${carThumb(c.id, { color: { hex: '#e8e8e8', finish: 'metallic' }, v2: false })}" style="object-fit:contain;inset:10px 20px 46px;width:calc(100% - 40px);height:calc(100% - 56px)"><div class="lab" style="background:rgba(0,0,0,.6);font-family:var(--font);font-style:italic;font-size:20px">${c.name}</div>${this.mode === 'register' ? '<div class="tag">おすすめ</div><div class="new">New</div>' : owned ? '<div class="tag" style="background:#3dff8a">所有中</div>' : `<div class="tag">¥${c.price.toLocaleString()}</div>`}</div>`;
+      return `<div class="scard" style="background:linear-gradient(180deg,#3a3e46,#15171b)"><img src="${carThumb(c.id, { color: { hex: '#f2f2ef', finish: 'gloss' }, v2: false })}" style="object-fit:contain;inset:10px 20px 46px;width:calc(100% - 40px);height:calc(100% - 56px)"><div class="lab" style="background:rgba(0,0,0,.6);font-family:var(--font);font-style:italic;font-size:20px">${c.name}</div>${this.mode === 'register' ? '<div class="tag">おすすめ</div><div class="new">New</div>' : owned ? '<div class="tag" style="background:#3dff8a">所有中</div>' : `<div class="tag">¥${c.price.toLocaleString()}</div>`}</div>`;
     }).join('') + '<i class="mk r"></i>';
     const cards = $$('.scard', strip);
     this.focus = new Focus(cards, { axis: 'h', index: 0, onChange: (i) => this.show(i), onSelect: () => this.openMenu() });
@@ -193,7 +193,7 @@ UI.register({
   },
   show(i) {
     const c = this.list[i]; const spec = buildSpec(c); const st = carStats(spec);
-    App.showroom.setCar(spec, { color: { hex: ['#f2f2ef', '#c8141c', '#1a4fbf', '#f2c40c', '#a9adb3', '#121316'][CARS.indexOf(c) % 6] } });
+    App.showroom.setCar(spec, { color: { hex: '#f2f2ef', finish: 'gloss' } });
     $('.cs-cat', this.el).innerHTML = `<div style="display:inline-block;padding:4px 20px;background:#111;color:#ffd400;font-family:var(--font);font-style:italic">${c.category}</div> ${c.catJp}<div style="margin-top:8px">${esc(c.desc)}</div>`;
     $('.cs-info', this.el).innerHTML = `<div class="nm">${c.name} <span style="font-size:20px;color:#666">[${c.year}]</span></div>
       <div class="chipr"><span style="font-family:var(--jp);font-weight:900;font-size:16px;color:#666">車種属性</span>${attrChips(c)}<span style="margin-left:auto;font-size:22px;font-style:italic">${c.drive} / ${c.gears.length}速</span></div>
