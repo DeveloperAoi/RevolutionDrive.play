@@ -107,7 +107,7 @@ export class Vehicle {
       if (counter) target += Math.sign(beta) * aid * (Math.abs(input.steer) < 0.1 ? 0.85 : 0.5);
     }
     target = Math.max(-s.steerLock, Math.min(s.steerLock, target));
-    const steerRate = 3.2 + assist * 2;
+    const steerRate = 3.2 + assist * 2 + (s.steerResp || 0) * 0.3;
     this.steer += Math.max(-steerRate * dt, Math.min(steerRate * dt, target - this.steer));
     const delta = this.steer;
 
@@ -128,7 +128,7 @@ export class Vehicle {
     const wheelRpm = (u / R) * 60 / (2 * Math.PI);
     let rpmFromWheels = Math.abs(wheelRpm * ratio);
     // clutch slip at launch
-    const launchRpm = e.idle + throttle * (e.redline * 0.42);
+    const launchRpm = e.idle + throttle * (e.redline * (0.42 + (s.launch || 0) * 0.03));
     let engRpm;
     if (this.gear === 0 || shifting) {
       engRpm = this.rpm + ((shifting ? rpmFromWheels : e.idle + throttle * e.redline) - this.rpm) * Math.min(1, dt * 12);
@@ -149,7 +149,7 @@ export class Vehicle {
     if (s.sound.turbo) {
       const want = throttle > 0.4 ? Math.min(1, (this.rpm - e.idle) / (e.redline * 0.45)) : 0;
       const prev = this.boost;
-      this.boost += (want - this.boost) * Math.min(1, dt * (want > this.boost ? 1.6 : 6));
+      this.boost += (want - this.boost) * Math.min(1, dt * (want > this.boost ? 1.6 * (s.boostRate || 1) : 6));
       if (prev > 0.6 && throttle < 0.2 && this.boost < prev - 0.05 && !this._bov) { this.events.push({ type: 'bov', amt: prev }); this._bov = true; }
       if (throttle > 0.5) this._bov = false;
     } else this.boost = 1;
@@ -228,7 +228,8 @@ export class Vehicle {
     const latLeftF = Math.sqrt(Math.max(0, 1 - Math.min(1, (FxF / capF) ** 2)));
     const latLeftR = Math.sqrt(Math.max(0, 1 - Math.min(1, (FxR / capR) ** 2)));
     FyF *= Math.max(0.28, latLeftF) * (spinF > 0 ? 0.8 : 1);
-    FyR *= Math.max(hb ? 0.30 : 0.36, latLeftR) * (spinR > 0 ? 0.82 : 1);
+    const trc = s.traction || 0;
+    FyR *= Math.max(hb ? 0.30 : 0.36 + trc * 0.04, latLeftR) * (spinR > 0 ? 0.82 + trc * 0.03 : 1);
     this.wheelspin = (driveForce > 0 ? Math.max(spinR * (1 - split), spinF * split) : 0);
     this.lockup = brake > 0.2 && (satF > 1 || satR > 1) ? 1 : (hb && Math.abs(u) > 2 ? 1 : 0);
 
@@ -240,6 +241,8 @@ export class Vehicle {
 
     // arcade drift assist: damp spins, sustain angle, keep speed through a slide
     const absBeta = Math.abs(beta);
+    // chassis stability (diff / rigidity / roll bar tuning) damps yaw once the car slides
+    if (s.stability && u > 5) Mz -= this.r * this.inertia * 0.012 * s.stability * Math.min(1, absBeta * 4 + 0.2);
     if (assist > 0 && u > 10 && absBeta < 0.12 && !input.handbrake) Mz -= this.r * this.inertia * 0.12 * assist * Math.min(1, u / 30);
     if (assist > 0 && u > 6) {
       if (absBeta > 0.12) {

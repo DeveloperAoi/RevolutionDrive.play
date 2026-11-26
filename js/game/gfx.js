@@ -37,8 +37,8 @@ export class Showroom {
   constructor(gfx) {
     this.gfx = gfx;
     const s = this.scene = new THREE.Scene();
-    s.background = new THREE.Color(0x07080b);
-    s.fog = new THREE.Fog(0x07080b, 14, 40);
+    s.background = new THREE.Color(0x1a1c20);
+    s.fog = new THREE.Fog(0x1a1c20, 18, 40);
     s.environment = gfx.env;
     this.camera = new THREE.PerspectiveCamera(32, 16 / 9, 0.1, 200);
     // floor + glowing turntable
@@ -62,6 +62,27 @@ export class Showroom {
       const bar = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 7), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xff8a00 : 0x9ab0d0, transparent: true, opacity: 0.55 }));
       bar.position.set(Math.sin(a) * 16, 3.5, Math.cos(a) * 16); bar.lookAt(0, 3.5, 0); s.add(bar);
     }
+    // garage interior props (original): shutter walls, shelves, tyre stacks, drums
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x3a3d42, roughness: 0.8, metalness: 0.3 });
+    const shutTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 256; const g = c.getContext('2d'); for (let y = 0; y < 256; y += 16) { g.fillStyle = '#7a7f86'; g.fillRect(0, y, 64, 12); g.fillStyle = '#4a4e54'; g.fillRect(0, y + 12, 64, 4); } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(8, 3); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+    for (let k = 0; k < 4; k++) {
+      const wall = new THREE.Mesh(new THREE.PlaneGeometry(26, 9), new THREE.MeshStandardMaterial({ map: shutTex, roughness: 0.7, metalness: 0.4, color: 0x8a8f96 }));
+      const a = k * Math.PI / 2; wall.position.set(Math.sin(a) * -13, 4.5, Math.cos(a) * -13); wall.rotation.y = a; s.add(wall);
+    }
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(26, 26), wallMat); ceil.rotation.x = Math.PI / 2; ceil.position.y = 9; s.add(ceil);
+    const lampM = new THREE.MeshBasicMaterial({ color: 0xfff6e0 });
+    for (const x of [-5, 0, 5]) { const l = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 0.3), lampM); l.position.set(x, 8.9, 0); s.add(l); }
+    const shelfM = new THREE.MeshStandardMaterial({ color: 0x2a5a8a, roughness: 0.6, metalness: 0.5 });
+    const boxM = new THREE.MeshStandardMaterial({ color: 0xa07a4a, roughness: 0.9 });
+    for (const [x, z, ry] of [[-9, -11.5, 0], [6, -11.5, 0], [-11.5, -3, Math.PI / 2]]) {
+      const shelf = new THREE.Group(); shelf.position.set(x, 0, z); shelf.rotation.y = ry; s.add(shelf);
+      for (let lv = 0; lv < 4; lv++) { const b = new THREE.Mesh(new THREE.BoxGeometry(4, 0.08, 1), shelfM); b.position.y = 0.5 + lv * 1.4; shelf.add(b); for (let i = 0; i < 3; i++) { const bx = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.8), boxM); bx.position.set(-1.3 + i * 1.3 + Math.sin(lv * 3 + i) * 0.2, 0.9 + lv * 1.4, 0); shelf.add(bx); } }
+      for (const sx of [-2, 2]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 6, 0.08), shelfM); post.position.set(sx, 3, 0.45); shelf.add(post); }
+    }
+    const tyreM = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+    for (const [x, z, n] of [[9.5, -8, 5], [10.5, -6.5, 4], [-10, 7, 6]]) for (let i = 0; i < n; i++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.14, 8, 18), tyreM); t.rotation.x = Math.PI / 2; t.position.set(x, 0.14 + i * 0.28, z); s.add(t); }
+    const drumM = new THREE.MeshStandardMaterial({ color: 0x1a4a9a, roughness: 0.5, metalness: 0.4 });
+    for (const [x, z] of [[10, 3], [10.8, 4.2], [-10.5, -8]]) { const d = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.1, 16), drumM); d.position.set(x, 0.55, z); s.add(d); }
     this.car = null; this.yaw = 0.7; this.spin = 0.25; this.drag = null; this.t = 0; this.dist = 11.5; this.offsetX = 0;
     this.bindDrag();
   }
@@ -75,22 +96,36 @@ export class Showroom {
     addEventListener('pointermove', (e) => move(e.clientX));
     addEventListener('pointerup', up);
   }
-  setCar(spec, dress) {
+  setCar(spec, dress, opts = {}) {
     if (this.car) { this.scene.remove(this.car.root); this.car.dispose(); }
-    this.car = createCar(spec, dress, {});
+    this.car = createCar(spec, dress, opts);
     this.car.root.position.y = 0.08;
     this.scene.add(this.car.root);
-    this.flash = 1;
   }
-  frameFor(x = 0) { this.offsetX = x; }
+  // place the turntable in a screen window (fractions of the 16:9 stage) and choose a camera preset
+  setWindow(cx = 0.5, cy = 0.5, zoom = 1) { this.win = { cx, cy, zoom }; }
+  setPreset(p) { this.preset = p; if (p !== 'free') this.spin = 0; else this.spin = 0.25; }
+  frameFor(x = 0) { this.setWindow(x < 0 ? 0.62 : 0.5, 0.45, 1); }
   update(dt) {
     this.t += dt;
-    this.yaw += this.spin * dt;
-    if (this.car) { this.car.root.rotation.y = this.yaw; this.car.showcase(this.t); }
+    const P = { free: null, front: 0, rear: Math.PI, left: -Math.PI / 2, right: Math.PI / 2, top: 0.6, wheel: -Math.PI / 2 + 0.35, three: 0.7 };
+    const tgt = P[this.preset || 'free'];
+    if (tgt == null || this.drag != null) this.yaw += this.spin * dt;
+    else { let d = tgt - this.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); this.yaw += d * Math.min(1, dt * 6); }
+    if (this.car) { this.car.root.rotation.y = this.yaw; this.car.showcase(this.t, this.preset === 'wheel'); }
     this.table.rotation.y = this.yaw;
-    const cx = this.offsetX;
-    this.camera.position.set(cx, 2.9, this.dist);
-    this.camera.lookAt(cx, 0.35, 0);
+    const w = this.win || { cx: 0.5, cy: 0.45, zoom: 1 };
+    let cam;
+    if (this.preset === 'top') cam = [0, 13, 0.6, 0.3];
+    else if (this.preset === 'wheel') cam = [0, 1.0, 5.6, 0.45];
+    else if (this.preset === 'front' || this.preset === 'rear') cam = [0, 1.6, 9.5, 0.55];
+    else cam = [0, 2.9, this.dist, 0.35];
+    const want = new THREE.Vector3(cam[0], cam[1], cam[2] / w.zoom);
+    this.camera.position.lerp(want, Math.min(1, dt * 5));
+    this.camera.lookAt(0, cam[3], 0);
+    // shift the projection so the car sits in the requested window
+    const W = 1920, H = 1080;
+    this.camera.setViewOffset(W, H, (0.5 - w.cx) * W, (0.5 - w.cy) * H, W, H);
   }
 }
 
@@ -128,5 +163,34 @@ export class TitleScene {
     this.motes.geometry.attributes.position.needsUpdate = true;
     this.world.update(this.camera, dt);
     this.car.showcase(this.t);
+  }
+}
+
+// ---- course select background: a slow flyover of the real course ----------------------
+export class CoursePreview {
+  constructor(gfx) { this.gfx = gfx; this.cache = new Map(); this.camera = new THREE.PerspectiveCamera(55, 16 / 9, 0.1, 6000); this.scene = new THREE.Scene(); this.s = 0; }
+  show(id, dir, weather) {
+    const key = id + dir + weather;
+    if (this.key === key) return;
+    this.key = key;
+    let e = this.cache.get(key);
+    if (!e) {
+      const track = new Track(courseById(id), dir);
+      const world = buildWorld(track, { weather });
+      const scene = new THREE.Scene(); scene.add(world.root); scene.fog = world.fog;
+      e = { track, world, scene };
+      this.cache.set(key, e);
+      if (this.cache.size > 3) { const [k0, old] = this.cache.entries().next().value; this.cache.delete(k0); old.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+    }
+    this.e = e; this.scene = e.scene; this.s = 30;
+  }
+  update(dt) {
+    if (!this.e) return;
+    const t = this.e.track; this.s = (this.s + dt * 22) % Math.max(1, t.length - 60);
+    const p = t.pointAt(this.s, 0), q = t.pointAt(this.s + 35, 0);
+    this.camera.position.lerp(new THREE.Vector3(p.x, p.y + 5.5, p.z), this.camera.position.distanceTo(new THREE.Vector3(p.x, p.y, p.z)) > 50 ? 1 : 0.2);
+    this.camera.lookAt(q.x, q.y + 1.5, q.z);
+    this.camera.clearViewOffset();
+    this.e.world.update(this.camera, dt);
   }
 }

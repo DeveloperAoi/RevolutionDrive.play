@@ -3,8 +3,9 @@
 // ACCOUNT: profiles live in Firestore (users/{uid}/profiles/{slot}) and are cached in
 //          IndexedDB under owner "uid:<uid>". Failed uploads stay queued locally and retry.
 import * as Net from '../net/firebase.js';
-import { CARS, carById, defaultDress, MAX_GARAGE } from '../data/cars.js';
+import { CARS, carById, MAX_GARAGE } from '../data/cars.js';
 import { COURSES } from '../data/courses.js';
+import { normalizeCar, defaultDressV2, defaultMeter } from '../data/custom.js';
 
 const DB_NAME = 'revolution-drive';
 const DB_VER = 1;
@@ -60,11 +61,11 @@ export function newProfile(owner) {
   return {
     id: 'P' + newId(), owner, version: 1, createdAt: now, updatedAt: now, lastPlayed: now,
     driverName: '', teamName: '', icon: 0,
-    credits: 5000, xp: 0, rp: 0,
+    credits: 5000, xp: 0, rp: 0, tp: 30,
     cars: [], activeCar: null,
     unlocked: { courses: COURSES.filter(c => !c.unlock).map(c => c.id) },
     records: {}, stats: { races: 0, wins: 0, trials: 0, km: 0, battles: 0 },
-    settings: { bgm: 6, sfx: 8, autoGear: true, assist: 6, camera: 0, touch: 'auto' },
+    settings: { bgm: 6, sfx: 8, autoGear: true, assist: 6, camera: 0, touch: 'auto', custTimer: true, raceBgm: 'race' },
     flags: {},
   };
 }
@@ -73,7 +74,7 @@ export function makeGarageCar(carId) {
   const c = carById(carId);
   return {
     uid: 'C' + newId(), carId: c.id, name: c.name, maker: c.maker, drive: c.drive, hp: c.engine.hp, disp: c.disp,
-    tune: {}, dress: defaultDress(), setup: {}, registeredAt: Date.now(), races: 0, km: 0,
+    tune: { v2: true }, dress: defaultDressV2(), meter: defaultMeter(), setup: {}, registeredAt: Date.now(), races: 0, km: 0, active: false,
   };
 }
 
@@ -126,9 +127,15 @@ class SaveManager {
 
   async use(profile) {
     this.profile = profile; profile.owner = this.owner; profile.lastPlayed = Date.now();
+    this.migrate(profile);
     await this.persistNow('load');
   }
   create() { this.profile = newProfile(this.owner); return this.profile; }
+  // bring older save data up to the current structure without losing anything
+  migrate(p) {
+    p.tp ??= 30; p.settings ??= {}; p.settings.custTimer ??= true; p.settings.raceBgm ??= 'race'; p.flags ??= {};
+    for (const c of p.cars) { normalizeCar(c); c.active = c.uid === p.activeCar; }
+  }
 
   // mark changed and autosave shortly after (debounced)
   touch(reason = 'auto') {
@@ -216,7 +223,7 @@ class SaveManager {
     if (p.activeCar === uid) p.activeCar = p.cars[0].uid;
     this.touch('car-remove'); return true;
   }
-  setActive(uid) { this.profile.activeCar = uid; this.touch('car-change'); }
+  setActive(uid) { this.profile.activeCar = uid; this.profile.cars.forEach(c => c.active = c.uid === uid); this.touch('car-change'); }
 }
 
 export const Save = new SaveManager();

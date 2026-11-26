@@ -7,6 +7,7 @@ import { Save } from './core/save.js';
 import { UI, fitStage, refreshSync } from './ui/core.js';
 import './ui/screens-start.js';
 import './ui/screens-menu.js';
+import './ui/screens-garage.js';
 import './ui/screens-race.js';
 
 function boot() {

@@ -43,7 +43,7 @@ export class Race {
     grid.forEach((g, k) => {
       const lane = n === 1 ? 0 : (k % 2 === 0 ? -1.9 : 1.9);
       const back = Math.floor(k / 2) * 9;
-      const p = this.track.pointAt(this.track.closed ? this.track.length - 5 - back : Math.max(1, 9 - back), lane);
+      const p = this.track.pointAt(this.track.closed ? this.track.length - 1.5 - back : Math.max(1, 13 - back), lane);
       const veh = new Vehicle(g.spec);
       veh.reset(p.x, p.y, p.z, p.yaw);
       const model = createCar(g.spec, g.dress, { headlights: g.ctrl === 'player' || (this.attract && k < 2) });
@@ -77,7 +77,7 @@ export class Race {
 
   initHud() {
     const h = this.hud;
-    this.tacho = new Tacho(h.tacho);
+    this.tacho = new Tacho(h.tacho, this.cfg.meter);
     this.mini = new MiniMap(h.minimap, this.track);
     h.root.classList.toggle('battle', this.cfg.mode === 'battle');
     h.pos.style.display = this.cfg.mode === 'battle' ? '' : 'none';
@@ -88,7 +88,7 @@ export class Race {
 
   start() {
     this.state = 'countdown'; this.clock = 0; this.countShown = 4;
-    Audio.playMusic('race');
+    Audio.playMusic(this.cfg.settings?.raceBgm || 'race');
   }
 
   surface(car) {
@@ -416,7 +416,7 @@ export class Race {
     }
     if (this.laps > 1) h.lap.textContent = `LAP ${Math.min(this.laps, Math.floor(Math.max(0, p.prog) / this.track.length) + 1)}/${this.laps}`;
     const v = p.veh;
-    this.tacho.draw(v, v.spec, v.kmh, { auto: this.autoGear });
+    this.tacho.draw(v, v.spec, v.kmh, { auto: this.autoGear, warn: p.wrong > 1.2 ? 'WRONG WAY' : (p.offroad ? 'COURSE OUT' : null) });
     const dots = this.cars.map(c => ({ x: c.veh.x, z: c.veh.z, yaw: c.veh.yaw, color: c.color }));
     if (this.ghost && this.ghost.model.root.visible) dots.unshift({ x: this.ghost.model.root.position.x, z: this.ghost.model.root.position.z, yaw: this.ghost.model.root.rotation.y, color: '#36c3ff', alpha: 0.6 });
     this.mini.draw(dots);

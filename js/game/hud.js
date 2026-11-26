@@ -1,3 +1,5 @@
+import { drawMeter } from './meters.js';
+import { defaultMeter } from '../data/custom.js';
 // Race HUD: tachometer / speedometer canvas, minimap, timing panels
 export const fmt = (t) => {
   if (t == null || !isFinite(t)) return '--\'--"---';
@@ -7,55 +9,12 @@ export const fmt = (t) => {
 export const fmtDelta = (d) => (d < 0 ? '-' : '+') + Math.abs(d).toFixed(3);
 
 export class Tacho {
-  constructor(canvas) { this.c = canvas; this.g = canvas.getContext('2d'); this.c.width = 460; this.c.height = 420; }
+  constructor(canvas, meter) { this.c = canvas; this.g = canvas.getContext('2d'); this.c.width = 460; this.c.height = 420; this.meter = meter || defaultMeter(); }
   draw(v, spec, kmh, extra = {}) {
-    const g = this.g, W = 460, H = 420, cx = 240, cy = 220, R = 170;
-    g.clearRect(0, 0, W, H);
-    const maxR = Math.ceil(spec.engine.limiter / 1000) * 1000 + 1000;
-    const a0 = Math.PI * 0.8, a1 = Math.PI * 2.2;
-    const ang = (r) => a0 + (a1 - a0) * Math.min(1, r / maxR);
-    // backplate
-    g.save();
-    g.beginPath(); g.arc(cx, cy, R + 18, 0, Math.PI * 2);
-    const bg = g.createRadialGradient(cx, cy, 20, cx, cy, R + 18); bg.addColorStop(0, 'rgba(20,22,26,.92)'); bg.addColorStop(1, 'rgba(0,0,0,.85)');
-    g.fillStyle = bg; g.fill();
-    g.lineWidth = 6; g.strokeStyle = '#8e949c'; g.stroke();
-    // red zone
-    g.beginPath(); g.arc(cx, cy, R - 8, ang(spec.engine.redline), a1); g.lineWidth = 16; g.strokeStyle = '#d0141e'; g.stroke();
-    // rpm fill arc
-    const fillTo = ang(v.rpm);
-    const grd = g.createLinearGradient(cx - R, 0, cx + R, 0); grd.addColorStop(0, '#ff7a00'); grd.addColorStop(1, '#ffd400');
-    g.beginPath(); g.arc(cx, cy, R - 32, a0, fillTo); g.lineWidth = 14; g.strokeStyle = v.rpm > spec.engine.redline ? '#ff2a3a' : grd; g.stroke();
-    // ticks
-    g.fillStyle = '#fff'; g.font = 'italic 900 26px Arial Black, Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    for (let r = 0; r <= maxR; r += 500) {
-      const a = ang(r), big = r % 1000 === 0;
-      g.beginPath(); g.moveTo(cx + Math.cos(a) * (R - (big ? 26 : 16)), cy + Math.sin(a) * (R - (big ? 26 : 16)));
-      g.lineTo(cx + Math.cos(a) * (R - 2), cy + Math.sin(a) * (R - 2)); g.lineWidth = big ? 4 : 2; g.strokeStyle = r >= spec.engine.redline ? '#ff5050' : '#fff'; g.stroke();
-      if (big) g.fillText(r / 1000, cx + Math.cos(a) * (R - 52), cy + Math.sin(a) * (R - 52));
-    }
-    // needle
-    const na = ang(v.rpm);
-    g.beginPath(); g.moveTo(cx - Math.cos(na) * 20, cy - Math.sin(na) * 20); g.lineTo(cx + Math.cos(na) * (R - 10), cy + Math.sin(na) * (R - 10));
-    g.lineWidth = 5; g.strokeStyle = '#ff3b1a'; g.shadowColor = '#ff6a00'; g.shadowBlur = 12; g.stroke(); g.shadowBlur = 0;
-    g.beginPath(); g.arc(cx, cy, 16, 0, Math.PI * 2); g.fillStyle = '#222'; g.fill(); g.strokeStyle = '#888'; g.lineWidth = 3; g.stroke();
-    // gear (centre-bottom) and speed (in the open bottom of the dial)
-    const gear = v.gear < 0 ? 'R' : v.gear === 0 ? 'N' : String(v.gear);
-    g.textAlign = 'center';
-    g.font = 'italic 900 70px Arial Black, Impact, sans-serif'; g.fillStyle = v.shiftTimer > 0 ? '#888' : '#ffd400';
-    g.fillText(gear, cx, cy + 62);
-    g.font = 'bold 16px sans-serif'; g.fillStyle = '#aaa'; g.fillText((extra.auto ? 'AT' : 'MT') + '  x1000rpm', cx, cy - 58);
-    g.font = 'italic 900 64px Arial Black, Impact, sans-serif'; g.fillStyle = '#fff'; g.textAlign = 'right';
-    g.fillText(Math.round(kmh), cx + 40, cy + 150);
-    g.font = 'italic 900 22px Arial Black, sans-serif'; g.fillStyle = '#ccc'; g.textAlign = 'left'; g.fillText('km/h', cx + 48, cy + 160);
-    // boost gauge
-    if (spec.sound.turbo) {
-      g.beginPath(); g.arc(cx, cy, R + 8, Math.PI * 1.05, Math.PI * 1.05 + Math.PI * 0.5 * v.boost); g.lineWidth = 6; g.strokeStyle = '#36c3ff'; g.stroke();
-      g.font = 'bold 16px sans-serif'; g.fillStyle = '#36c3ff'; g.textAlign = 'left'; g.fillText('BOOST', 18, 120);
-    }
-    // shift light
-    if (v.rpm > spec.engine.redline * 0.95) { g.beginPath(); g.arc(cx, 34, 12, 0, Math.PI * 2); g.fillStyle = '#ff2a3a'; g.shadowColor = '#f00'; g.shadowBlur = 20; g.fill(); g.shadowBlur = 0; }
-    g.restore();
+    drawMeter(this.g, this.meter.design, this.meter, {
+      rpm: v.rpm, redline: spec.engine.redline, limiter: spec.engine.limiter, gear: v.gear, kmh, boost: v.boost, turbo: spec.sound.turbo,
+      auto: extra.auto, drift: (v.driftAngle || 0) * 57.3, shifting: v.shiftTimer > 0, warn: extra.warn,
+    });
   }
 }
 

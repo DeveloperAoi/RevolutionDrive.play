@@ -58,10 +58,10 @@ UI.register({
       this.race = new Race(App.gfx, {
         mode: params.mode, courseId: params.courseId, dir: params.dir, weather: params.weather,
         player: { spec, dress: gc.dress, name: Save.profile.driverName }, rivals, ghost, best: rec, hud,
-        settings: App.settings, onFinish: (res) => this.finish(res),
+        settings: App.settings, meter: gc.meter, onFinish: (res) => this.finish(res),
       });
       App.race = this.race;
-      App.gfx.setView({ scene: this.race.scene, camera: this.race.camera, update: (dt) => this.race.update(dt) });
+      const race = this.race; App.gfx.setView({ scene: race.scene, camera: race.camera, update: (dt) => { if (this.race === race) race.update(dt); } });
       this.race.start();
     };
     Audio.stopMusic(0.3);
@@ -91,14 +91,14 @@ UI.register({
     const p = Save.profile; const gc = Save.activeCar;
     const key = `${res.courseId}:${res.dir}`;
     const prev = p.records[key];
-    let credits = 0, rp = 0, newRecord = false;
+    let credits = 0, rp = 0, tp = 0, newRecord = false;
     const km = Math.max(0, res.distance) / 1000;
     p.stats.races++; p.stats.km += km; gc.races = (gc.races || 0) + 1; gc.km = (gc.km || 0) + km;
     if (res.time != null && (res.mode === 'trial')) {
       p.stats.trials++;
-      credits += 300 + Math.round(km * 60); rp += 40;
+      credits += 300 + Math.round(km * 60); rp += 40; tp += 5;
       if (!prev || res.time < prev.best) {
-        newRecord = true; credits += prev ? 500 : 200; rp += prev ? 60 : 20;
+        newRecord = true; credits += prev ? 500 : 200; rp += prev ? 60 : 20; tp += 5;
         p.records[key] = { best: res.time, sections: res.sections, carId: gc.carId, car: gc.name, date: Date.now() };
         await Save.saveGhost(res.courseId, res.dir, res.ghost);
       }
@@ -106,7 +106,7 @@ UI.register({
     if (res.mode === 'battle') {
       p.stats.battles = (p.stats.battles || 0) + 1;
       const lvl = this.params.cpu || { reward: 700 };
-      if (res.won) { p.stats.wins++; credits += lvl.reward; rp += 120; } else { credits += Math.round(lvl.reward * 0.25); rp += 25; }
+      if (res.won) { p.stats.wins++; credits += lvl.reward; rp += 120; tp += 10; } else { credits += Math.round(lvl.reward * 0.25); rp += 25; tp += 3; }
       if (res.time != null && (!prev || res.time < prev.best)) { newRecord = true; p.records[key] = { best: res.time, sections: res.sections, carId: gc.carId, car: gc.name, date: Date.now() }; }
     }
     let event = null;
@@ -114,16 +114,16 @@ UI.register({
       const e = this.params.event; p.flags.events ||= {};
       const st = p.flags.events[e.id] ||= { best: null, cleared: false };
       if (st.best == null || res.time < st.best) st.best = res.time;
-      if (res.time <= e.target && !st.cleared) { st.cleared = true; credits += e.reward; rp += 150; event = { cleared: true, reward: e.reward }; }
+      if (res.time <= e.target && !st.cleared) { st.cleared = true; credits += e.reward; rp += 150; tp += 15; event = { cleared: true, reward: e.reward }; }
       else event = { cleared: res.time <= e.target, reward: 0 };
     }
     const rankBefore = rankOf(p.rp);
-    p.credits += credits; p.rp += rp; p.xp += rp;
+    p.credits += credits; p.rp += rp; p.xp += rp; p.tp = (p.tp ?? 0) + tp;
     // unlocks
     const unlocked = [];
     for (const c of COURSES) if (c.unlock && !p.unlocked.courses.includes(c.id) && p.rp >= c.unlock.rp) { p.unlocked.courses.push(c.id); unlocked.push(c.jp); }
     await Save.persistNow('race-end');
-    UI.go('result', { res, prev, newRecord, credits, rp, rankBefore, rankAfter: rankOf(p.rp), unlocked, event, params: this.params });
+    UI.go('result', { res, prev, newRecord, credits, rp, tp, rankBefore, rankAfter: rankOf(p.rp), unlocked, event, params: this.params });
   },
   onAction(a) {
     if (!this.race) return;
@@ -149,13 +149,13 @@ UI.register({
     const ev = d.event ? `<div class="r"><span>EVENT</span><span class="${d.event.cleared ? 'g' : ''}">${d.event.cleared ? 'CLEAR!' : 'FAILED'} (目標 ${fmt(d.params.event.target)})</span></div>` : '';
     $('.res-table', this.el).innerHTML = `
       <div class="res-box"><h3>SECTION TIMES</h3>${secs || '<div class="r"><span>—</span></div>'}<div class="r"><span>PERSONAL BEST</span><span class="y">${fmt(Save.profile.records[`${res.courseId}:${res.dir}`]?.best)}</span></div></div>
-      <div class="res-box"><h3>REWARDS</h3>${ev}<div class="r"><span>CREDITS</span><span class="y">+¥${d.credits.toLocaleString()}</span></div><div class="r"><span>RANK POINT</span><span class="g">+${d.rp} RP</span></div>
+      <div class="res-box"><h3>REWARDS</h3>${ev}<div class="r"><span>CREDITS</span><span class="y">+¥${d.credits.toLocaleString()}</span></div><div class="r"><span>RANK POINT</span><span class="g">+${d.rp} RP</span></div><div class="r"><span>TUNE POINT</span><span class="g">+${d.tp} pts.</span></div>
         <div class="r"><span>RANK</span><span>${d.rankBefore.label} → <b style="color:#ffd400">${d.rankAfter.label}</b></span></div><div class="xpbar"><i style="width:0"></i></div>
         ${d.unlocked.length ? `<div class="r"><span>UNLOCK</span><span class="g">${d.unlocked.join(', ')} 解放!</span></div>` : ''}
         <div class="r"><span>TOTAL</span><span class="y">¥${Save.profile.credits.toLocaleString()}</span></div></div>`;
     setTimeout(() => { const x = $('.xpbar i', this.el); if (x) x.style.width = (d.rankAfter.progress * 100) + '%'; }, 200);
     if (d.rankAfter.label !== d.rankBefore.label) setTimeout(() => { toast(`RANK UP!! ${d.rankAfter.label}`); Audio.ui('start'); }, 900);
-    const btns = d.params.event ? [['RETRY', 'retry', 'primary'], ['EVENT LIST', 'special', ''], ['MODE SELECT', 'mode', 'dark']] : [['RETRY', 'retry', 'primary'], ['COURSE SELECT', 'course', ''], ['GARAGE', 'garage', ''], ['MODE SELECT', 'mode', 'dark']];
+    const btns = d.params.event ? [['RETRY', 'retry', 'primary'], ['EVENT LIST', 'special', ''], ['MODE SELECT', 'mode', 'dark']] : [['RETRY', 'retry', 'primary'], ['COURSE SELECT', 'course', ''], ['GARAGE / TUNING', 'garage', ''], ['MODE SELECT', 'mode', 'dark']];
     $('.res-btns', this.el).innerHTML = btns.map(([l, a, c]) => `<button class="btn ${c}" data-a="${a}">${l}</button>`).join('');
     this.d = d;
     this.focus = new Focus($$('.res-btns .btn', this.el), { axis: 'h', onSelect: (i, b) => { Audio.ui('ok'); const a = b.dataset.a; if (a === 'retry') UI.go('race', d.params); else UI.go(a); } });

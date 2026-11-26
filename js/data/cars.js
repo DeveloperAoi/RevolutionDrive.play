@@ -1,4 +1,5 @@
 // REVOLUTION DRIVE — vehicle catalogue
+import { TUNE_PARTS_V2 } from './custom.js';
 // All manufacturers, model names and designs are ORIGINAL to this game.
 // No real-world brand, badge or body design is reproduced.
 
@@ -95,29 +96,43 @@ export const TUNE_PARTS = {
   gearbox:    { label: 'TRANSMISSION', jp: 'ミッション',   cost: [0, 3000, 6500, 11000] },
 };
 
-// produce effective spec from base + tune levels + setup sliders
+// produce effective spec from base + tune levels (v2: Lv.0-5 per part) + setup sliders
 export function buildSpec(base, tune = {}, setup = {}) {
-  const t = (k) => tune[k] || 0;
+  if (tune && !tune.v2) { // legacy/simple tune objects (CPU cars, old saves)
+    const m = { engine: ['power', 'ecu'], turbo: ['intake', 'turbo'], weight: ['weight'], tires: ['tire', 'compound'], suspension: ['susp', 'camber'], brakes: ['brake'], gearbox: ['trans'] };
+    const t = { v2: true }; for (const [k, ids] of Object.entries(m)) if (tune[k]) ids.forEach(id => t[id] = Math.min(5, Math.round(tune[k] * 5 / 3))); tune = t;
+  }
   const s = JSON.parse(JSON.stringify(base));
-  const powerMul = 1 + t('engine') * 0.09 + t('turbo') * (base.sound.turbo ? 0.08 : 0.05);
+  const fx = { power: 0, rev: 0, accel: 0, shift: 0, launch: 0, traction: 0, stab: 0, handling: 0, steer: 0, brake: 0, weight: 0, grip: 0, boost: 0 };
+  for (const p of TUNE_PARTS_V2) {
+    const lv = tune[p.id] || 0; if (!lv) continue;
+    if (p.turboOnly && !base.sound.turbo) continue;
+    for (const [k, v] of Object.entries(p.fx)) fx[k] += v * lv;
+  }
+  const powerMul = 1 + fx.power / 100;
   s.engine.hp = Math.round(base.engine.hp * powerMul);
   s.engine.torque = Math.round(base.engine.torque * powerMul);
-  s.engine.redline += t('engine') * 150; s.engine.limiter += t('engine') * 150;
-  s.mass = Math.round(base.mass * (1 - t('weight') * 0.045));
-  s.tire.grip = base.tire.grip * (1 + t('tires') * 0.045);
-  s.brake = base.brake * (1 + t('brakes') * 0.08);
-  s.suspensionLevel = t('suspension');
-  s.gears = base.gears.map(g => g * (1 + t('gearbox') * 0.02)); // closer/shorter ratios
-  s.shiftTime = 0.22 - t('gearbox') * 0.04;
-  // setup sliders (-1..1)
+  s.engine.redline += fx.rev; s.engine.limiter += fx.rev;
+  s.mass = Math.round(base.mass * (1 - fx.weight / 100));
+  s.tire.grip = base.tire.grip * (1 + fx.grip / 100);
+  s.brake = base.brake * (1 + fx.brake / 100);
+  s.suspensionLevel = fx.handling / 5;          // 0..5 → tyre stiffness / load sensitivity
+  s.stability = fx.stab;                         // 0..~22 → yaw damping in slides
+  s.traction = fx.traction;                      // 0..5 → keeps rear lateral grip under wheelspin
+  s.steerResp = fx.steer;                        // 0..5 → steering speed
+  s.launch = fx.launch;                          // 0..5 → clutch launch revs
+  s.boostRate = 1 + fx.boost * 0.15;
+  s.gears = base.gears.slice();
+  s.shiftTime = Math.max(0.08, 0.22 - fx.shift * 0.025);
   s.setup = {
     brakeBias: 0.62 + (setup.brakeBias || 0) * 0.08,
     steerSens: 1 + (setup.steer || 0) * 0.15,
-    finalMul: 1 + (setup.final || 0) * 0.08,
-    camber: (setup.camber || 0),        // + more drift-friendly rear
-    stiffness: (setup.stiffness || 0),  // + stiffer
+    finalMul: 1 + (setup.final || 0) * 0.08 + fx.accel * 0.006,
+    camber: (setup.camber || 0),
+    stiffness: (setup.stiffness || 0),
   };
   s.final = base.final * s.setup.finalMul;
+  s.tuneFx = fx;
   return s;
 }
 
@@ -125,12 +140,15 @@ export function buildSpec(base, tune = {}, setup = {}) {
 export function carStats(spec) {
   const pw = spec.engine.hp / spec.mass * 1000; // hp per tonne
   const top = topSpeedKmh(spec);
+  const c = (v) => Math.max(0.3, Math.min(10, v));
   return {
-    power: Math.min(10, pw / 26),
-    speed: Math.min(10, (top - 150) / 14),
-    handling: Math.min(10, (spec.tire.grip * 7) + (1400 - spec.mass) / 300 + (spec.drive === 'FR' ? 0.6 : 0) + (spec.suspensionLevel || 0) * .3),
-    accel: Math.min(10, pw / 24 + (spec.drive === '4WD' ? 1.4 : 0)),
-    brake: Math.min(10, spec.brake * 7.5 + (1400 - spec.mass) / 400),
+    power: c(pw / 26),
+    speed: c((top - 150) / 14),
+    handling: c((spec.tire.grip * 6) + (1400 - spec.mass) / 350 + (spec.drive === 'FR' ? 0.5 : 0) + (spec.suspensionLevel || 0) * 0.5),
+    accel: c(pw / 24 + (spec.drive === '4WD' ? 1.4 : 0) + (spec.tuneFx?.accel || 0) * 0.04),
+    brake: c(spec.brake * 7 + (1400 - spec.mass) / 400),
+    stability: c(4 + (spec.drive === '4WD' ? 2 : spec.drive === 'FF' ? 1.5 : 0) + (spec.stability || 0) * 0.22 + (spec.downforce || 0) * 4),
+    grip: c(spec.tire.grip * 7.5 - 1.5),
     top,
   };
 }
