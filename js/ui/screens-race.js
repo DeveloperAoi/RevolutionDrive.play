@@ -66,7 +66,7 @@ UI.register({
     const start = async () => {
       const ghost = params.mode === 'trial' ? await Save.loadGhost(params.courseId, params.dir) : null;
       this.race = new Race(App.gfx, {
-        mode: params.mode, courseId: params.courseId, dir: params.dir, weather: params.weather,
+        mode: params.mode, courseId: params.courseId, dir: params.dir, weather: params.weather, time: params.time,
         player: { spec, dress: gc.dress, name: Save.profile.driverName }, rivals, ghost, best: rec, hud,
         playerInfo: { name: Save.profile.driverName, team: Save.profile.teamName, rp: Save.profile.rp, icon: Save.profile.icon, carName: gc.name },
         settings: App.settings, meter: gc.meter, onFinish: (res) => this.finish(res),
@@ -137,7 +137,7 @@ UI.register({
     for (const c of COURSES) if (c.unlock && !p.unlocked.courses.includes(c.id) && p.rp >= c.unlock.rp) { p.unlocked.courses.push(c.id); unlocked.push(c.jp); }
     await Save.persistNow('race-end');
     res.cars = this.race ? this.race.cars.length : 2;
-    if (this.race) { res.targets = this.race.ui ? this.race.ui.targets : targetTimes(this.race); res.weather = this.params.weather; const rv = this.race.cars.find(c => c !== this.race.player); if (rv) { res.rivalName = rv.name; res.rivalCar = rv.carName; } }
+    if (this.race) { res.targets = this.race.ui ? this.race.ui.targets : targetTimes(this.race); res.weather = this.params.weather; res.tod = this.params.time; const rv = this.race.cars.find(c => c !== this.race.player); if (rv) { res.rivalName = rv.name; res.rivalCar = rv.carName; } }
     UI.go('result', { res, prev, newRecord, ghostSaved: newRecord && res.mode === 'trial', credits, rp, tp, rankBefore, rankAfter: rankOf(p.rp), unlocked, event, params: this.params });
   },
   onAction(a) {
@@ -159,11 +159,11 @@ UI.register({
     const { res, prev, newRecord } = d; const c = courseById(res.courseId); const p = Save.profile; const gc = Save.activeCar;
     Audio.playMusic('result'); Audio.stopEngines();
     // scenic backdrop: the course itself, slowly flown over
-    import('../game/gfx.js').then(({ CoursePreview }) => { if (UI.current !== this) return; App.coursePreview ||= new CoursePreview(App.gfx); App.coursePreview.show(res.courseId, res.dir, res.weather || c.weather); App.gfx.setView(App.coursePreview); });
+    import('../game/gfx.js').then(({ CoursePreview }) => { if (UI.current !== this) return; App.coursePreview ||= new CoursePreview(App.gfx); App.coursePreview.show(res.courseId, res.dir, res.weather || c.weather, res.tod || c.time); App.gfx.setView(App.coursePreview); });
     App.gfx.setView(null);
     $('.pp', this.el).innerHTML = plate(); $('.cbx', this.el).innerHTML = consoleBox();
     const battle = res.mode === 'battle';
-    $('.rs-info', this.el).innerHTML = `<div class="hd">レース情報</div><div class="v">${c.jp} / ${c.dirs[res.dir][1]} / ${c.time === 'night' ? '夜' : c.time === 'dusk' ? '夕方' : '昼'}${res.weather === 'rain' ? ' / 雨' : ''}</div>
+    $('.rs-info', this.el).innerHTML = `<div class="hd">レース情報</div><div class="v">${c.jp} / ${c.dirs[res.dir][1]} / ${(res.tod || c.time) === 'night' ? '夜' : (res.tod || c.time) === 'dusk' ? '夕方' : '昼'}${res.weather === 'rain' ? ' / 雨' : ''}</div>
       <div class="car">${esc(gc.name)} <span>${gc.drive}</span> <span>${tuneLevel(gc)}</span></div>`;
     // right: goal & section times
     const secs = res.sections.map((t, i) => { const split = t - (i ? res.sections[i - 1] : 0); const b = prev?.sections; const bs = b && b[i] != null ? b[i] - (i ? b[i - 1] : 0) : null; return `<div class="sr"><i>${i + 1}</i><b>${fmt(split)}</b><em class="${bs == null ? '' : split <= bs ? 'fast' : 'slow'}">${bs == null ? '(-\'--"---)' : '(' + fmtDelta(split - bs) + ')'}</em></div>`; }).join('');

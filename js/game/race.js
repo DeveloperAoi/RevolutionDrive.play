@@ -48,6 +48,7 @@ export class Race {
       const veh = new Vehicle(g.spec);
       veh.reset(p.x, p.y, p.z, p.yaw);
       const model = createCar(g.spec, g.dress, { headlights: g.ctrl === 'player' || (this.attract && k < 2), flares: true });
+      model.root.traverse(o => { if (o.isMesh && !(o.material.isMeshBasicMaterial && o.material.transparent)) o.castShadow = true; });
       this.scene.add(model.root);
       const mu = MUFFLERS.find(m => m.id === g.dress?.muffler);
       const car = {
@@ -268,6 +269,7 @@ export class Race {
     }
     this.updateCamera(dt);
     this.world.update(this.camera, dt);
+    if (this.world.shadowFollow && this.focus) this.world.shadowFollow(this.focus.model.root.position);
     if (this.hud) this.updateHud();
   }
 

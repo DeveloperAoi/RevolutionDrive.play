@@ -16,6 +16,7 @@ import { CoursePreview } from '../game/gfx.js';
 
 // ---- helpers --------------------------------------------------------------------
 const DRV_COL = { FR: '#d01020', FF: '#1a7ad0', '4WD': '#2a9a3a' };
+const TIME_LBL = { night: '夜 (NIGHT)', dusk: '夕方 (DUSK)', day: '昼 (DAY)' };
 const attrChips = (c) => `<span class="chip2" style="background:${DRV_COL[c.drive]}">${c.drive}</span><span class="chip2" style="background:#7a1aa0">${c.category}</span><span class="chip2" style="background:#e07a00">${c.engine.type}</span>`;
 function segBars(rows, cur, next) {
   return `<div class="mbar">${rows.map(([l, k]) => { const a = Math.round(cur[k]), b = next ? Math.round(next[k]) : a; return `<span>${l}</span><div class="segs">${Array.from({ length: 10 }, (_, i) => `<i class="${i < a ? 'on' : i < b ? 'up' : ''}"></i>`).join('')}</div>`; }).join('')}</div>`;
@@ -759,7 +760,7 @@ UI.register({
     const cards = $$('.c-strip .scard', this.el);
     const idx = Math.max(0, COURSES.findIndex(c => c.id === P.courseId));
     this.zone = 'list'; this.optI = 0;
-    this.focus = new Focus(cards, { axis: 'h', index: idx, onChange: (i) => { P.courseId = COURSES[i].id; P.dir = 'fwd'; P.weather = null; this.show(); }, onSelect: () => this.go() });
+    this.focus = new Focus(cards, { axis: 'h', index: idx, onChange: (i) => { P.courseId = COURSES[i].id; P.dir = 'fwd'; P.weather = null; P.time = null; this.show(); }, onSelect: () => this.go() });
     const ap = this.focus.apply.bind(this.focus); this.focus.apply = () => { ap(); cards.forEach((c, j) => c.classList.toggle('sel', j === this.focus.i)); }; this.focus.apply();
     P.courseId = COURSES[idx].id; P.cpu ||= 'normal';
     this.show();
@@ -769,10 +770,10 @@ UI.register({
   track(id, dir) { const k = id + dir; return this.tracks[k] ||= new Track(courseById(id), dir); },
   show() {
     const P = this.p; const c = courseById(P.courseId); const tr = this.track(c.id, P.dir);
-    const weather = P.weather || c.weather;
+    const weather = P.weather || c.weather, time = P.time || c.time;
     // live 3D flyover of the course behind the UI (built lazily)
     clearTimeout(this._pv);
-    this._pv = setTimeout(() => { if (UI.current !== this) return; App.coursePreview ||= new CoursePreview(App.gfx); App.coursePreview.show(c.id, P.dir, weather); App.gfx.setView(App.coursePreview); }, 250);
+    this._pv = setTimeout(() => { if (UI.current !== this) return; App.coursePreview ||= new CoursePreview(App.gfx); App.coursePreview.show(c.id, P.dir, weather, time); App.gfx.setView(App.coursePreview); }, 250);
     drawCourseMap($('.c-map', this.el), tr, { w: 7, color: '#ff4af0', glow: 'rgba(255,60,230,.45)' });
     $('.c-label', this.el).innerHTML = `<div style="display:inline-block;padding:4px 22px;border:3px solid #ff4af0;background:rgba(40,0,40,.75);font-family:var(--jp);font-weight:900;font-size:24px;color:#fff;box-shadow:0 0 16px #f4f">${c.features[0]}</div><div style="font-size:64px;line-height:70px;font-style:italic;text-shadow:0 5px 0 #000">${c.name}</div><div style="font-family:var(--jp);font-weight:900;font-size:30px;color:#ffd400;text-shadow:0 3px 0 #000">${c.jp} — ${c.dirs[P.dir][1]}</div>`;
     // left: cars (active glowing)
@@ -783,7 +784,7 @@ UI.register({
     // right: reputation + guide + options
     const recF = p.records[`${c.id}:fwd`], recR = p.records[`${c.id}:rev`];
     const lvOf = (r) => r ? Math.max(1, Math.min(9, Math.round(10 - r.best / 30))) : 0;
-    const opts = [['DIRECTION', `${c.dirs[P.dir][1]}(${c.dirs[P.dir][0]})`], ['WEATHER', weather === 'rain' ? '雨 (WET)' : '晴れ (DRY)']];
+    const opts = [['DIRECTION', `${c.dirs[P.dir][1]}(${c.dirs[P.dir][0]})`], ['WEATHER', weather === 'rain' ? '雨 (WET)' : '晴れ (DRY)'], ['TIME', TIME_LBL[time]]];
     if (P.mode === 'battle') opts.push(['CPU LEVEL', CPU_LV.find(l => l.id === P.cpu).name]);
     if (P.event) opts.length = 0;
     $('.c-right', this.el).innerHTML = `<div style="background:linear-gradient(180deg,rgba(20,40,110,.9),rgba(8,14,40,.9));border:2px solid #6a8ad0;padding:14px 20px;font-family:var(--jp);font-weight:900">
@@ -806,6 +807,7 @@ UI.register({
     const P = this.p; const c = courseById(P.courseId);
     if (this.optI === 0) P.dir = P.dir === 'fwd' ? 'rev' : 'fwd';
     else if (this.optI === 1) P.weather = (P.weather || c.weather) === 'rain' ? 'clear' : 'rain';
+    else if (this.optI === 2) { const T = ['night', 'dusk', 'day']; P.time = T[(T.indexOf(P.time || c.time) + d + 3) % 3]; }
     else { const i = CPU_LV.findIndex(l => l.id === P.cpu); P.cpu = CPU_LV[(i + d + CPU_LV.length) % CPU_LV.length].id; }
     Audio.ui('move'); this.show();
   },
@@ -816,7 +818,7 @@ UI.register({
       if (timeout) { P.courseId = COURSES[0].id; } else { await dialog.alert('LOCKED', `${c.jp} は未解放です。<br>${c.unlock.text}`); return; }
     }
     stopTimer(); Audio.ui('start');
-    UI.go('race', { mode: P.mode, courseId: P.courseId, dir: P.dir, weather: P.weather || courseById(P.courseId).weather, cpu: CPU_LV.find(l => l.id === P.cpu), event: P.event });
+    UI.go('race', { mode: P.mode, courseId: P.courseId, dir: P.dir, weather: P.weather || courseById(P.courseId).weather, time: P.time || courseById(P.courseId).time, cpu: CPU_LV.find(l => l.id === P.cpu), event: P.event });
   },
   onAction(a) {
     if (a === 'back') { Audio.ui('back'); return UI.go(this.p.event ? 'special' : 'mode'); }

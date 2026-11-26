@@ -80,6 +80,7 @@ UI.register({
       ['GHOST COLOR', { '#7af0ff': 'CYAN', '#ffffff': 'WHITE', '#ffd400': 'YELLOW', '#ff5ad0': 'PINK', '#5aff7a': 'GREEN' }[s.ghostColor || '#7af0ff'], 'ghostColor'],
       ['LINE GUIDE', s.lineGuide ? 'ON' : 'OFF', 'lineGuide'],
       ['CAMERA SHAKE', 'slider', 'camShake'],
+      ['GRAPHICS', s.gfx === 'low' ? 'LOW 軽量' : 'HIGH 高画質 (影・ブルーム)', 'gfx'],
     ];
   },
   render() {
@@ -98,6 +99,7 @@ UI.register({
     if (k === 'camShake') s.camShake = Math.max(0, Math.min(10, (s.camShake ?? 6) + d));
     if (k === 'ghostColor') { const o = ['#7af0ff', '#ffffff', '#ffd400', '#ff5ad0', '#5aff7a']; s.ghostColor = o[(o.indexOf(s.ghostColor || '#7af0ff') + d + o.length) % o.length]; }
     if (k === 'camera') s.camera = (s.camera + d + 3) % 3;
+    if (k === 'gfx') s.gfx = s.gfx === 'low' ? 'high' : 'low';
     if (k === 'touch') { const o = ['auto', 'on', 'off']; s.touch = o[(o.indexOf(s.touch) + d + 3) % 3]; }
     App.applySettings(); Audio.ui('move'); if (Save.profile) Save.touch('settings'); this.render();
   },

@@ -5,6 +5,10 @@ import { Track } from '../world/track.js';
 import { buildWorld } from '../world/scenery.js';
 import { courseById } from '../data/courses.js';
 import * as TX from '../world/textures.js';
+import { EffectComposer } from '../../lib/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from '../../lib/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from '../../lib/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from '../../lib/jsm/postprocessing/OutputPass.js';
 
 export class Gfx {
   constructor(canvas) {
@@ -12,14 +16,22 @@ export class Gfx {
     r.setPixelRatio(Math.min(devicePixelRatio, 1.75));
     r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.15;
     r.outputColorSpace = THREE.SRGBColorSpace;
+    r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
     this.env = buildEnvMap(r);
     this.view = null;
     this.quality = 1;
+    // post processing: bloom on lamps / headlights / sun, then tone mapping + sRGB in the output pass
+    this.composer = new EffectComposer(r);
+    this.renderPass = new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(960, 540), 0.55, 0.45, 0.82);
+    this.composer.addPass(this.renderPass); this.composer.addPass(this.bloom); this.composer.addPass(new OutputPass());
+    this.hq = true;
     addEventListener('resize', () => this.resize()); this.resize();
   }
   resize() {
     const w = innerWidth, h = innerHeight;
     this.renderer.setSize(w, h, false);
+    if (this.composer) { this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(w, h); this.bloom.resolution.set(w / 2, h / 2); }
     this.aspect = w / h;
     if (this.view && this.view.camera) { this.view.camera.aspect = this.aspect; this.view.camera.updateProjectionMatrix(); }
   }
@@ -28,7 +40,17 @@ export class Gfx {
     const v = this.view; if (!v) { this.renderer.setClearColor(0x000000); this.renderer.clear(); return; }
     if (v.update) v.update(dt);
     if (v.camera.aspect !== this.aspect) { v.camera.aspect = this.aspect; v.camera.updateProjectionMatrix(); }
-    this.renderer.render(v.scene, v.camera);
+    if (this.hq && v.post !== false) {
+      this.renderPass.scene = v.scene; this.renderPass.camera = v.camera;
+      this.bloom.strength = v.bloom ?? 0.55;
+      this.composer.render(dt);
+    } else this.renderer.render(v.scene, v.camera);
+  }
+  setQuality(q) { // 'high' | 'low'
+    this.hq = q !== 'low';
+    this.renderer.shadowMap.enabled = this.hq;
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.hq ? 1.75 : 1));
+    this.resize();
   }
 }
 
@@ -169,14 +191,14 @@ export class TitleScene {
 // ---- course select background: a slow flyover of the real course ----------------------
 export class CoursePreview {
   constructor(gfx) { this.gfx = gfx; this.cache = new Map(); this.camera = new THREE.PerspectiveCamera(55, 16 / 9, 0.1, 6000); this.scene = new THREE.Scene(); this.s = 0; }
-  show(id, dir, weather) {
-    const key = id + dir + weather;
+  show(id, dir, weather, time) {
+    const key = id + dir + weather + time;
     if (this.key === key) return;
     this.key = key;
     let e = this.cache.get(key);
     if (!e) {
       const track = new Track(courseById(id), dir);
-      const world = buildWorld(track, { weather });
+      const world = buildWorld(track, { weather, time });
       const scene = new THREE.Scene(); scene.add(world.root); scene.fog = world.fog;
       e = { track, world, scene };
       this.cache.set(key, e);

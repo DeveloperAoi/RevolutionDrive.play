@@ -329,6 +329,7 @@ export function buildWorld(track, opts = {}) {
     crownI.setColorAt(k, col);
   });
   sc.set(1, 1, 1);
+  trunkI.castShadow = crownI.castShadow = true;
   root.add(trunkI, crownI);
 
   // ---- start / goal gates ------------------------------------------------
@@ -375,20 +376,42 @@ export function buildWorld(track, opts = {}) {
     m.map.repeat.set(3, 1);
     const mesh = new THREE.Mesh(g, m); mesh.position.y = y; return mesh;
   };
-  const tone = (opts.time || def.time) === 'dusk' ? ['#3a2038', '#1c1024'] : ['#0b1226', '#050913'];
+  const T = opts.time || def.time;
+  if (T === 'day' && !wet) {
+    // sun disc + soft glare, drifting cumulus
+    const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.glowTexture('rgba(255,255,245,1)', 'rgba(255,240,200,0)'), fog: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending }));
+    sun.position.set(-1250, 2050, -1650).setLength(2700); sun.scale.set(520, 520, 1); skyGroup.add(sun);
+    const cr = mulberry(77);
+    for (let k = 0; k < 26; k++) {
+      const a = cr() * Math.PI * 2, el = 0.12 + cr() * 0.32, R = 2500;
+      const c = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.cloudTexture(k % 5), fog: false, depthWrite: false, transparent: true, opacity: 0.85 + cr() * 0.15 }));
+      c.position.set(Math.cos(a) * Math.cos(el) * R, Math.sin(el) * R, Math.sin(a) * Math.cos(el) * R);
+      const w = 500 + cr() * 700; c.scale.set(w, w * (0.32 + cr() * 0.15), 1); skyGroup.add(c);
+    }
+  }
+  const tone = T === 'dusk' ? ['#3a2038', '#1c1024'] : T === 'day' ? (wet ? ['#4a5560', '#3a444c'] : ['#6f8aa0', '#4f6b78']) : ['#0b1226', '#050913'];
   skyGroup.add(ring(2500, 900, tone[0], 2, 150), ring(2000, 700, tone[1], 3, 80));
   root.add(skyGroup);
 
   // valley floor
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshStandardMaterial({ color: (opts.time || def.time) === 'dusk' ? 0x1a1820 : 0x05070a, roughness: 1 }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshStandardMaterial({ color: T === 'dusk' ? 0x1a1820 : T === 'day' ? 0x2c3d28 : 0x05070a, roughness: 1 }));
   floor.rotation.x = -Math.PI / 2; floor.position.set((track.bounds.minX + track.bounds.maxX) / 2, track.bounds.minY - 90, (track.bounds.minZ + track.bounds.maxZ) / 2);
   root.add(floor);
 
   // ---- lighting ---------------------------------------------------------
-  const hemi = new THREE.HemisphereLight(time.sky[2], 0x0a0a10, time.amb);
-  const moonL = new THREE.DirectionalLight((opts.time || def.time) === 'dusk' ? 0xffb080 : 0x8fa8ff, time.moon);
-  moonL.position.set(-300, 500, -400);
-  root.add(hemi, moonL);
+  const hemi = new THREE.HemisphereLight(time.sky[2], T === 'day' ? 0x3a3020 : 0x0a0a10, wet && T === 'day' ? time.amb * 0.8 : time.amb);
+  const moonL = new THREE.DirectionalLight(T === 'dusk' ? 0xffb080 : T === 'day' ? 0xfff1dc : 0x8fa8ff, wet && T === 'day' ? time.moon * 0.35 : time.moon);
+  const sunDir = new THREE.Vector3(-300, 500, -400).normalize();
+  moonL.position.copy(sunDir).multiplyScalar(120);
+  // real-time shadows: a tight shadow frustum that follows the camera target
+  moonL.castShadow = true;
+  moonL.shadow.mapSize.set(2048, 2048);
+  const SC = moonL.shadow.camera; SC.left = -45; SC.right = 45; SC.top = 45; SC.bottom = -45; SC.near = 1; SC.far = 320;
+  moonL.shadow.bias = -0.0004; moonL.shadow.normalBias = 0.04;
+  moonL.shadow.intensity = T === 'night' ? 0.55 : 1;
+  root.add(hemi, moonL, moonL.target);
+  root.traverse(o => { if (o.isMesh || o.isInstancedMesh) { o.receiveShadow = true; } });
+  const shadowFollow = (p) => { moonL.target.position.copy(p); moonL.position.copy(p).addScaledVector(sunDir, 160); };
 
   // ---- rain -------------------------------------------------------------
   let rain = null;
@@ -403,7 +426,7 @@ export function buildWorld(track, opts = {}) {
   const fog = new THREE.Fog(wet ? 0x10141c : time.fog, wet ? 20 : time.fogNear, wet ? 260 : time.fogFar);
 
   return {
-    root, fog, skyGroup, rain, lightAt, grip: wet ? 0.78 : 1.0,
+    root, fog, skyGroup, rain, lightAt, sun: moonL, shadowFollow, grip: wet ? 0.78 : 1.0,
     update(cam, dt) {
       skyGroup.position.copy(cam.position);
       if (rain) {

@@ -498,8 +498,8 @@ export function createCar(spec, dressIn = {}, opts = {}) {
   shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.03; shadow.renderOrder = 1; root.add(shadow);
   const lights = [];
   if (opts.headlights) for (const sd of [-1, 1]) {
-    const sl = new THREE.SpotLight(0xfff2dd, 60, 120, 0.42, 0.55, 1.4);
-    sl.position.set(sd * (wid / 2 - 0.3), yH, frontZ); sl.target.position.set(sd * 1.2, 0, frontZ + 30);
+    const sl = new THREE.SpotLight(0xfff2dd, 320, 110, 0.5, 0.5, 1.25);
+    sl.position.set(sd * (wid / 2 - 0.3), yH, frontZ); sl.target.position.set(sd * 1.0, -0.6, frontZ + 20);
     body.add(sl, sl.target); lights.push(sl);
   }
   const flareMat = new THREE.SpriteMaterial({ map: TX.glowTexture('rgba(255,255,250,1)', 'rgba(180,200,255,0)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });

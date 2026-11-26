@@ -206,3 +206,21 @@ export function meshTexture() {
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(8, 1); t.colorSpace = THREE.SRGBColorSpace;
   return (cache[key] = t);
 }
+
+export function cloudTexture(seed = 0) {
+  const key = 'cloud' + seed; if (cache[key]) return cache[key];
+  const [c, g] = canvas(256, 128);
+  let a = seed * 9301 + 49297; const rnd = () => ((a = (a * 9301 + 49297) % 233280) / 233280);
+  for (let k = 0; k < 34; k++) {
+    const x = 40 + rnd() * 176, y = 50 + rnd() * 40 - Math.abs(x - 128) * 0.12, r = 18 + rnd() * 30;
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    const sh = 225 + Math.floor((y / 128) * -30 + rnd() * 20);
+    grd.addColorStop(0, `rgba(${sh},${sh},${sh + 8},0.55)`); grd.addColorStop(1, `rgba(${sh},${sh},${sh + 8},0)`);
+    g.fillStyle = grd; g.fillRect(0, 0, 256, 128);
+  }
+  // flat grey bottom
+  const fade = g.createLinearGradient(0, 70, 0, 128); fade.addColorStop(0, 'rgba(160,170,185,0)'); fade.addColorStop(1, 'rgba(160,170,185,0.25)');
+  g.globalCompositeOperation = 'source-atop'; g.fillStyle = fade; g.fillRect(0, 0, 256, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return (cache[key] = t);
+}
