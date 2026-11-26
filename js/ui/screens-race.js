@@ -16,7 +16,7 @@ import { fmt, fmtDelta } from '../game/hud.js';
 const RIVAL_NAMES = [['ハヤト', 'MIDNIGHT WOLVES', 2], ['リン', 'SKYLINE ANGELS', 4], ['ゴウ', 'IRON RIDGE', 3], ['ミサキ', 'NIGHT KITE', 5], ['ケンジ', 'RED SUNSET', 7], ['ユウ', 'BLUE FLAME', 1]];
 
 UI.register({
-  id: 'race',
+  id: 'race', wide: true,
   build(n) {
     n.innerHTML = `
       <div class="rh">
@@ -35,15 +35,27 @@ UI.register({
       <div class="touch">
         <div class="tbtn l" data-t="left">◀</div><div class="tbtn r" data-t="right">▶</div>
         <div class="tbtn acc" data-t="acc">ACCEL</div><div class="tbtn brk" data-t="brk">BRAKE</div><div class="tbtn hb" data-t="hb">S.BRAKE</div>
-        <div class="tbtn pause" data-t="pause">II</div></div>
+        <div class="tbtn pause" data-t="pause">II</div>
+        <div class="tbtn sup" data-t="up">SHIFT<br>UP</div><div class="tbtn sdn" data-t="down">SHIFT<br>DOWN</div><div class="tbtn cam" data-t="cam">VIEW</div>
+        <div class="tslide"><i class="knob"></i><span>◀ スライドでハンドル ▶</span></div></div>
       <div class="pause-menu"><div class="box"><h2>PAUSE</h2><button class="btn primary">RESUME</button><button class="btn">RETRY</button><button class="btn">SETTINGS (CAMERA C)</button><button class="btn dark">QUIT</button></div></div>`;
     // touch buttons
     $$('.tbtn', n).forEach(b => {
       const k = b.dataset.t;
-      const on = (e) => { e.preventDefault(); Audio.unlock(); if (k === 'pause') return this.togglePause(); Input.touch[k] = 1; b.classList.add('on'); };
-      const off = (e) => { e.preventDefault(); if (k !== 'pause') { Input.touch[k] = 0; b.classList.remove('on'); } };
+      const on = (e) => { e.preventDefault(); Audio.unlock(); if (k === 'pause') return this.togglePause(); if (k === 'up' || k === 'down' || k === 'cam') { Input.press({ up: 'TouchUp', down: 'TouchDown', cam: 'TouchCam' }[k]); b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 120); return; } Input.touch[k] = 1; b.classList.add('on'); };
+      const off = (e) => { e.preventDefault(); if (k !== 'pause' && k !== 'up' && k !== 'down' && k !== 'cam') { Input.touch[k] = 0; b.classList.remove('on'); } };
       b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointerleave', off); b.addEventListener('pointercancel', off);
     });
+  },
+  bindSlide() {
+    const z = $('.tslide', this.el), knob = $('.knob', z); let id = null, x0 = 0;
+    const W = 260; // px (stage units) for full lock
+    const scale = () => z.getBoundingClientRect().width / z.offsetWidth || 1;
+    const set = (v) => { Input.touch.steer = v; knob.style.transform = `translateX(${v * W}px)`; };
+    z.onpointerdown = (e) => { e.preventDefault(); Audio.unlock(); id = e.pointerId; x0 = e.clientX; z.setPointerCapture(id); set(0); z.classList.add('on'); };
+    z.onpointermove = (e) => { if (e.pointerId !== id) return; const d = (e.clientX - x0) / scale() / W; set(Math.max(-1, Math.min(1, Math.sign(d) * Math.pow(Math.abs(d), 1.2)))); };
+    const up = (e) => { if (e.pointerId !== id) return; id = null; set(0); Input.touch.steer = null; z.classList.remove('on'); };
+    z.onpointerup = up; z.onpointercancel = up;
   },
   enter(params) {
     this.params = params;
@@ -88,6 +100,10 @@ UI.register({
     Audio.stopMusic(0.3);
     const touchOn = App.settings.touch === 'on' || (App.settings.touch === 'auto' && App.isTouch);
     $('.touch', this.el).classList.toggle('on', touchOn);
+    const ts = App.settings.touchSteer || 'button';
+    $('.touch', this.el).dataset.steer = ts; $('.touch', this.el).classList.toggle('mt', !App.settings.autoGear);
+    if (!this._slideBound) { this.bindSlide(); this._slideBound = true; }
+    Input.touch.steer = null;
     $('.rh', this.el).classList.toggle('touchmode', touchOn);
     $('.pause-menu', this.el).classList.remove('on');
     const btns = $$('.pause-menu .btn', this.el);
@@ -96,7 +112,7 @@ UI.register({
     return start();
   },
   cleanup() { if (this.race) { this.race.dispose(); this.race = null; App.race = null; } },
-  leave() { this.cleanup(); Object.keys(Input.touch).forEach(k => Input.touch[k] = 0); },
+  leave() { this.cleanup(); Object.keys(Input.touch).forEach(k => Input.touch[k] = 0); Input.touch.steer = null; },
   async quitOnline() {
     if (this._q) return; this._q = true;
     const ok = await dialog.confirm('対戦を終了', 'オンライン対戦を終了しますか?<br>(途中で抜けると敗北になります)', '終了する', '続ける');

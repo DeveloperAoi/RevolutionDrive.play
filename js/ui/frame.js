@@ -63,7 +63,11 @@ export function kgIcon(kind) {
 }
 export function keyGuide(items = [['dpad', '選択'], ['ok', '決定'], ['back', '戻る']]) {
   const ic = { dpad: kgIcon('dpad'), ok: kgIcon('ok'), back: kgIcon('back'), lr: kgIcon('lr'), ud: kgIcon('ud'), view: kgIcon('view') };
-  return `<div class="af-keys">${items.map(([k, t]) => `<span>${ic[k] || ''}${t}</span>`).join('')}</div>`;
+  const touch = matchMedia('(pointer: coarse)').matches;
+  const arrows = { dpad: [['up', '▲'], ['down', '▼'], ['left', '◀'], ['right', '▶']], lr: [['left', '◀'], ['right', '▶']], ud: [['up', '▲'], ['down', '▼']] };
+  return `<div class="af-keys${touch ? ' tap' : ''}">${items.map(([k, t]) => touch && arrows[k]
+    ? `<span class="kgt">${arrows[k].map(([a, g]) => `<b data-act="${a}">${g}</b>`).join('')}${t}</span>`
+    : `<span data-act="${k === 'ok' ? 'ok' : k === 'back' || k === 'view' ? 'back' : ''}">${ic[k] || ''}${t}</span>`).join('')}</div>`;
 }
 export function titleTimer(title, timerId = 'af-timer') {
   return `<div class="af-title"><div class="t">${title}</div><div class="timer af-tm" id="${timerId}"><b>3:00</b></div></div>`;

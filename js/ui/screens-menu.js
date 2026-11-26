@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { UI, Focus, $, $$, el, esc, dialog, toast, sleep, startTimer, stopTimer, playerPlate, consolePlate, footer, rankBadge, avatarSVG } from './core.js';
 import { App } from '../app.js';
+import { Input } from '../core/input.js';
 import { Audio } from '../audio/audio.js';
 import { Save, rankOf } from '../core/save.js';
 import * as Net from '../net/firebase.js';
@@ -74,13 +75,14 @@ UI.register({
       ['DRIFT ASSIST', 'slider', 'assist'],
       ['CAMERA', ['CHASE', 'FAR', 'BUMPER'][s.camera], 'camera'],
       ['TOUCH CONTROLS', { auto: 'AUTO', on: 'ON', off: 'OFF' }[s.touch], 'touch'],
+      ['TOUCH STEERING', { button: 'ボタン', slide: 'スライド', tilt: '傾き(ジャイロ)' }[s.touchSteer || 'button'], 'touchSteer'],
       ['CUSTOMIZE TIMER', s.custTimer ? '3:00 制限あり' : '制限なし', 'custTimer'],
       ['PERSONAL GHOST', s.ghost === false ? 'OFF' : 'ON', 'ghost'],
       ['GHOST OPACITY', 'slider', 'ghostOp10'],
       ['GHOST COLOR', { '#7af0ff': 'CYAN', '#ffffff': 'WHITE', '#ffd400': 'YELLOW', '#ff5ad0': 'PINK', '#5aff7a': 'GREEN' }[s.ghostColor || '#7af0ff'], 'ghostColor'],
       ['LINE GUIDE', s.lineGuide ? 'ON' : 'OFF', 'lineGuide'],
       ['CAMERA SHAKE', 'slider', 'camShake'],
-      ['GRAPHICS', s.gfx === 'low' ? 'LOW 軽量' : 'HIGH 高画質 (影・ブルーム)', 'gfx'],
+      ['GRAPHICS', (s.gfx || (App.isTouch ? 'low' : 'high')) === 'low' ? 'LOW 軽量 (スマホ推奨)' : 'HIGH 高画質 (影・ブルーム)', 'gfx'],
     ];
   },
   render() {
@@ -99,7 +101,8 @@ UI.register({
     if (k === 'camShake') s.camShake = Math.max(0, Math.min(10, (s.camShake ?? 6) + d));
     if (k === 'ghostColor') { const o = ['#7af0ff', '#ffffff', '#ffd400', '#ff5ad0', '#5aff7a']; s.ghostColor = o[(o.indexOf(s.ghostColor || '#7af0ff') + d + o.length) % o.length]; }
     if (k === 'camera') s.camera = (s.camera + d + 3) % 3;
-    if (k === 'gfx') s.gfx = s.gfx === 'low' ? 'high' : 'low';
+    if (k === 'gfx') s.gfx = (s.gfx || (App.isTouch ? 'low' : 'high')) === 'low' ? 'high' : 'low';
+    if (k === 'touchSteer') { const o = ['button', 'slide', 'tilt']; s.touchSteer = o[(o.indexOf(s.touchSteer || 'button') + d + 3) % 3]; if (s.touchSteer === 'tilt') Input.enableTilt(true).then(ok => { if (!ok) { s.touchSteer = 'button'; this.render(); toast('傾きセンサーを使用できません'); } }); }
     if (k === 'touch') { const o = ['auto', 'on', 'off']; s.touch = o[(o.indexOf(s.touch) + d + 3) % 3]; }
     App.applySettings(); Audio.ui('move'); if (Save.profile) Save.touch('settings'); this.render();
   },

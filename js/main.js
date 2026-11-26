@@ -13,6 +13,11 @@ import './ui/screens-hub.js';
 import './ui/screens-online.js';
 import { preloadPacks } from './data/glbcars.js';
 
+export async function goFullscreen() {
+  try { const el = document.documentElement; if (!document.fullscreenElement && el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' }); } catch { /* iOS Safari: not supported */ }
+  try { await screen.orientation.lock('landscape'); } catch { /* not supported / not fullscreen */ }
+}
+window.__goFullscreen = goFullscreen;
 function boot() {
   fitStage(); addEventListener('resize', fitStage);
   Input.init();
@@ -23,6 +28,14 @@ function boot() {
   // first user gesture unlocks audio (browser autoplay policy)
   const unlock = () => { Audio.unlock(); App.applySettings(); };
   addEventListener('pointerdown', unlock); addEventListener('keydown', unlock);
+  // tappable key guide (touch screens): ◀ ▶ ▲ ▼ / START / VIEW pills send menu actions
+  addEventListener('pointerup', (e) => { const t = e.target.closest && e.target.closest('[data-act]'); if (t && t.dataset.act && !t.closest('.touch')) { e.preventDefault(); Input.menu(t.dataset.act); } });
+  // portrait phones: ask to rotate; fullscreen + landscape lock on first tap when installed/allowed
+  const orient = () => document.body.classList.toggle('portrait', App.isTouch && innerHeight > innerWidth * 1.05);
+  addEventListener('resize', orient); orient();
+  if (App.isTouch) document.body.classList.add('is-touch');
+  const rot = document.createElement('div'); rot.id = 'rotate'; rot.innerHTML = '<div class="ph"></div><b>端末を横向きにしてください</b><small>REVOLUTION DRIVE は横画面でプレイします</small><button>全画面で遊ぶ</button>';
+  rot.querySelector('button').onclick = () => goFullscreen(); document.body.appendChild(rot);
   let last = performance.now();
   const loop = (now) => {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;

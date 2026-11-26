@@ -58,6 +58,8 @@ UI.register({
           <a class="iconbtn" href="${SITE_URL}" target="_blank" rel="noopener"><span class="ic">WEB</span>公式サイト</a>
           <div class="iconbtn" data-a="sound"><span class="ic">♪</span><span>SOUND ON</span></div>
           <div class="iconbtn" data-a="settings"><span class="ic">⚙</span>設定</div>
+          <div class="iconbtn" data-a="news"><span class="ic">i</span>お知らせ</div>
+          <div class="iconbtn" data-a="full"><span class="ic">⛶</span>全画面</div>
         </div>
         <div class="ver">${VERSION}</div>
       </div>`;
@@ -81,11 +83,13 @@ UI.register({
   leave() { clearInterval(this.idleH); },
   updSound() { $('[data-a=sound] span:last-child', this.el).textContent = App.settings.bgm > 0 ? 'SOUND ON' : 'SOUND OFF'; },
   pick(it) {
-    if (it.classList.contains('press')) { Audio.unlock(); Audio.ui('start'); UI.go('entry'); return; }
+    if (it.classList.contains('press')) { Audio.unlock(); Audio.ui('start'); if (App.isTouch && !document.fullscreenElement && window.__goFullscreen) window.__goFullscreen(); UI.go('entry'); return; }
     if (it.tagName === 'A') { window.open(SITE_URL, '_blank', 'noopener'); return; }
     const a = it.dataset.a;
     if (a === 'sound') { Audio.unlock(); const s = App.settings; const on = s.bgm > 0 || s.sfx > 0; s.bgm = on ? 0 : 6; s.sfx = on ? 0 : 8; App.applySettings(); this.updSound(); Audio.ui('ok'); }
     if (a === 'settings') { Audio.ui('ok'); UI.go('settings', { back: 'title' }); }
+    if (a === 'news') { Audio.ui('ok'); UI.go('news', { back: 'title' }); }
+    if (a === 'full') { Audio.ui('ok'); window.__goFullscreen && window.__goFullscreen(); }
   },
   onAction(a) { this.idle = 0; if (a === 'back') return; this.focus.action(a); },
 });

@@ -2,7 +2,8 @@
 // driving reads analog-ish values every frame.
 export const Input = {
   keys: new Set(), menuHandler: null, textCapture: null,
-  touch: { left: 0, right: 0, acc: 0, brk: 0, hb: 0 },
+  touch: { left: 0, right: 0, acc: 0, brk: 0, hb: 0, steer: null, up: 0, down: 0, cam: 0 },
+  tilt: null, tiltOn: false,
   steerKb: 0, edges: new Set(), padPrev: {},
   init() {
     addEventListener('keydown', (e) => {
@@ -27,6 +28,22 @@ export const Input = {
     addEventListener('blur', () => this.keys.clear());
   },
   menu(a, e) { if (this.menuHandler) this.menuHandler(a, e); },
+  press(code) { this.edges.add(code); },
+  // tilt steering: device roll in landscape → -1..1 (±28° = full lock)
+  async enableTilt(on) {
+    this.tiltOn = on; if (!on) { this.tilt = null; return true; }
+    try { if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) { const r = await DeviceOrientationEvent.requestPermission(); if (r !== 'granted') { this.tiltOn = false; return false; } } } catch { this.tiltOn = false; return false; }
+    if (!this._tiltBound) {
+      this._tiltBound = true;
+      addEventListener('deviceorientation', (e) => {
+        if (e.beta == null) return;
+        const ang = (screen.orientation && screen.orientation.angle) ?? window.orientation ?? 90;
+        const roll = ang === 90 ? e.beta : ang === -90 || ang === 270 ? -e.beta : e.gamma;
+        this.tilt = Math.abs(roll) < 2 ? 0 : roll / 28;
+      });
+    }
+    return true;
+  },
   edge(code) { if (this.edges.has(code)) { this.edges.delete(code); return true; } return false; },
   endFrame() { this.edges.clear(); },
   pollPad() {
@@ -55,14 +72,17 @@ export const Input = {
     // keyboard steering ramps in, returns faster
     const rate = target === 0 ? 7 : (Math.sign(target) !== Math.sign(this.steerKb) ? 9 : 4.5);
     this.steerKb += Math.max(-rate * dt, Math.min(rate * dt, target - this.steerKb));
-    let steer = this.steerKb, throttle = (k.has('ArrowUp') || k.has('KeyW') || t.acc) ? 1 : 0, brake = (k.has('ArrowDown') || k.has('KeyS') || t.brk) ? 1 : 0;
+    let steer = this.steerKb;
+    if (t.steer != null) steer = t.steer; // slide steering (analog)
+    if (this.tiltOn && this.tilt != null && !left && !right) steer = Math.max(-1, Math.min(1, this.tilt));
+    let throttle = (k.has('ArrowUp') || k.has('KeyW') || t.acc) ? 1 : 0, brake = (k.has('ArrowDown') || k.has('KeyS') || t.brk) ? 1 : 0;
     let hb = k.has('Space') || t.hb;
-    let up = this.edge('KeyE') || this.edge('ShiftRight') || this.edge('KeyX');
-    let down = this.edge('KeyQ') || this.edge('ControlRight') || this.edge('KeyZ');
+    let up = this.edge('KeyE') || this.edge('ShiftRight') || this.edge('KeyX') || this.edge('TouchUp');
+    let down = this.edge('KeyQ') || this.edge('ControlRight') || this.edge('KeyZ') || this.edge('TouchDown');
     if (pad) {
       if (Math.abs(pad.steer) > Math.abs(steer)) steer = Math.sign(pad.steer) * Math.pow(Math.abs(pad.steer), 1.4);
       throttle = Math.max(throttle, pad.throttle); brake = Math.max(brake, pad.brake); hb = hb || pad.hb; up = up || pad.up; down = down || pad.down;
     }
-    return { steer, throttle, brake, handbrake: !!hb, shiftUp: up, shiftDown: down, camera: this.edge('KeyC'), reset: this.edge('KeyR'), pause: this.edge('KeyP') || !!(pad && pad.pause) };
+    return { steer, throttle, brake, handbrake: !!hb, shiftUp: up, shiftDown: down, camera: this.edge('KeyC') || this.edge('TouchCam'), reset: this.edge('KeyR'), pause: this.edge('KeyP') || !!(pad && pad.pause) };
   },
 };

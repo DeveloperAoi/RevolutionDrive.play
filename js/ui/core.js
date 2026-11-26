@@ -11,6 +11,9 @@ export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp
 // ---- stage scaling (16:9 virtual 1920x1080) ----
 export function fitStage() {
   const st = $('#stage'); const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+  // screens flagged "wide" (race HUD) stretch the stage to the full width of wider-than-16:9 phones
+  const w = UI.current && UI.current.wide && innerWidth / innerHeight > 16 / 9 ? Math.round(innerWidth / s) : 1920;
+  st.style.width = w + 'px';
   st.style.transform = `scale(${s})`;
 }
 
@@ -29,7 +32,7 @@ export const UI = {
     if (wipe) { const w = $('#wipe'); w.classList.remove('run'); void w.offsetWidth; w.classList.add('run'); Audio.whoosh(0.5); await sleep(330); }
     if (prev) { prev.el.classList.remove('active'); prev.leave && prev.leave(); stopTimer(); }
     if (push && prev) this.stack.push(prev.id);
-    this.current = next;
+    this.current = next; fitStage();
     Input.menuHandler = (a, e) => { Audio.unlock(); if (dialog.open) return dialog.onAction(a); next.onAction && next.onAction(a, e); };
     next.el.classList.add('active');
     this.busy = false;
