@@ -7,8 +7,10 @@ import { Audio } from '../audio/audio.js';
 import { Save, rankOf } from '../core/save.js';
 import { carById } from '../data/cars.js';
 import { courseById } from '../data/courses.js';
-import { SEASONS, findEpisode, storyRank } from '../data/story.js';
+import { SEASONS, findEpisode, storyRank, condMet, condText } from '../data/story.js';
 import { CoursePreview } from '../game/gfx.js';
+import { addTokens, checkRewards, accState } from '../data/accessories.js';
+import { goWithRewards } from './screens-acc.js';
 
 // ---- original character portrait generator (anime-style bust, vector) ----
 export function portraitSVG(p = {}, size = 160, uid = 'x') {
@@ -92,7 +94,7 @@ UI.register({
     const next = this.zone === 'ep' ? this.ei : Math.max(0, arc.episodes.findIndex(e => !prog().cleared[e.id]));
     const e = arc.episodes[next], course = courseById(arc.courseId);
     $('.st-info', this.el).innerHTML = arcUnlocked(S, this.ai)
-      ? `<b>${esc(arc.title)}${arc.sub}</b> — ${esc(arc.story)}<br><span>第${next + 1}話「${esc(e.title)}」 VS ${esc(e.rival.name)}(${esc(carById(e.rival.carId).name)}) · ${course.jp} ${course.dirs[arc.dir][1]}${arc.weather === 'rain' ? ' · 雨' : ''} · クリア報酬 <em>${e.tp} TP</em></span>`
+      ? `<b>${esc(arc.title)}${arc.sub}</b> — ${esc(arc.story)}<br><span>第${next + 1}話「${esc(e.title)}」 クリア条件:<em>${esc(condText(e))}</em> · VS ${esc(e.rival.name)}(${esc(carById(e.rival.carId).name)}) · ${course.jp} ${course.dirs[arc.dir][1]}${arc.weather === 'rain' ? ' · 雨' : ''} · クリア報酬 <em>${e.tp} TP</em></span>`
       : `<b>${esc(arc.title)}${arc.sub}</b> — 前のストーリーをすべてクリアすると解放されます。`;
   },
   pick() {
@@ -176,13 +178,16 @@ UI.register({
 // called by the race screen: applies progress & rewards, then shows the result
 export function storyFinish(res, epId) {
   const f = findEpisode(epId), st = prog(), p = Save.profile;
+  res = { ...res, won: condMet(f.ep, res) };
   const first = res.won && !st.cleared[epId];
   const before = storyRank(st.pts).rank;
   let tp = 0, pts = 0;
   st.plays++;
   if (res.won) { tp = first ? f.ep.tp : 1; pts = first ? (f.ep.boss ? 200 : 100) : 0; st.cleared[epId] = true; }
   st.pts += pts; p.tp = (p.tp ?? 0) + tp;
-  return { f, won: res.won, first, tp, pts, rankBefore: before, rankAfter: storyRank(st.pts).rank, time: res.time };
+  const tokens = res.won ? (first ? (f.ep.boss ? 260 : 130) : 45) : 20; const cpGain = addTokens(p, tokens);
+  checkRewards(p);
+  return { f, won: res.won, first, tp, pts, tokens, cpGain, rankBefore: before, rankAfter: storyRank(st.pts).rank, time: res.time };
 }
 UI.register({
   id: 'storyresult',
@@ -202,7 +207,7 @@ UI.register({
     const badge = (lab) => `<div class="medal"><svg viewBox="0 0 120 120" width="170" height="170"><circle cx="60" cy="60" r="56" fill="#7a3a2a"/><circle cx="60" cy="60" r="50" fill="#d8a070"/><circle cx="60" cy="60" r="44" fill="radial-gradient(#3dd17a,#0a6a2a)"/><circle cx="60" cy="60" r="44" fill="#1aa04a"/><path d="M36 74 C52 70 70 52 84 30 C74 60 60 74 40 80Z" fill="#0a4a1a"/><text x="60" y="68" text-anchor="middle" font-family="Arial Black" font-style="italic" font-size="22" fill="#fff" stroke="#063" stroke-width="1">${lab}</text></svg></div>`;
     $('.sr-panels', this.el).innerHTML = `
       <div class="pn"><div class="hd">ストーリーランク</div>${badge('STORY')}<div class="stars">${'★'.repeat(Math.min(5, sr.rank))}</div><div class="bar"><span>次回昇格まで</span><b>${sr.next}</b><em>+${pts}</em></div></div>
-      <div class="pn"><div class="hd">チューニング</div><div class="shop"><svg viewBox="0 0 200 120" width="220" height="130"><rect x="20" y="40" width="160" height="70" fill="#e8e8e6" stroke="#555" stroke-width="2"/><rect x="14" y="26" width="172" height="20" fill="#222"/><text x="100" y="41" text-anchor="middle" font-family="Arial Black" font-size="12" fill="#fff">TUNING SHOP</text><rect x="36" y="60" width="50" height="50" fill="#3a4a5a"/><rect x="104" y="58" width="62" height="52" fill="#9aa0a8"/></svg></div><div class="tp">+${tp} <small>TP</small></div><div class="bar"><span>所持 Tune POINT</span><b>${p.tp ?? 0}</b><em>pts.</em></div></div>
+      <div class="pn"><div class="hd">チューニング</div><div class="shop"><svg viewBox="0 0 200 120" width="220" height="130"><rect x="20" y="40" width="160" height="70" fill="#e8e8e6" stroke="#555" stroke-width="2"/><rect x="14" y="26" width="172" height="20" fill="#222"/><text x="100" y="41" text-anchor="middle" font-family="Arial Black" font-size="12" fill="#fff">TUNING SHOP</text><rect x="36" y="60" width="50" height="50" fill="#3a4a5a"/><rect x="104" y="58" width="62" height="52" fill="#9aa0a8"/></svg></div><div class="tp">+${tp} <small>TP</small></div><div class="ctk">カスタマイズトークン +${d.tokens || 0}${d.cpGain ? ` <b>→ CP +${d.cpGain}!</b>` : ''} <small>(${accState(p).ct}/100)</small></div><div class="bar"><span>所持 Tune POINT</span><b>${p.tp ?? 0}</b><em>pts.</em></div></div>
       <div class="pn"><div class="hd">走り屋グレード</div><div class="grade">${rankBadge(p.rp, 200)}</div><div class="bar"><span>${rankOf(p.rp).label}</span><b>${p.rp}</b><em>RP</em></div></div>`;
     const arc = f.arc, j = arc.episodes.indexOf(f.ep);
     const hasNext = won && (j < arc.episodes.length - 1 || f.season.arcs.indexOf(arc) < f.season.arcs.length - 1);
@@ -221,14 +226,14 @@ UI.register({
   act() {
     stopTimer(); Audio.ui('ok');
     const a = this.tiles[this.bi].dataset.a, { f } = this.d;
-    if (a === 'retry') return UI.go('storyintro', { epId: f.ep.id });
-    if (a === 'tune') { App.hubReturn = 'story'; return UI.go('tuning', { uid: Save.activeCar.uid }); }
+    if (a === 'retry') return goWithRewards('storyintro', { epId: f.ep.id });
+    if (a === 'tune') { App.hubReturn = 'story'; return goWithRewards('tuning', { uid: Save.activeCar.uid }); }
     if (a === 'next') {
       const arc = f.arc, j = arc.episodes.indexOf(f.ep);
-      if (j < arc.episodes.length - 1) return UI.go('storyintro', { epId: arc.episodes[j + 1].id });
-      return UI.go('story', { arc: f.season.arcs.indexOf(arc) + 1 });
+      if (j < arc.episodes.length - 1) return goWithRewards('storyintro', { epId: arc.episodes[j + 1].id });
+      return goWithRewards('story', { arc: f.season.arcs.indexOf(arc) + 1 });
     }
-    UI.go('story', { arc: f.season.arcs.indexOf(f.arc) });
+    goWithRewards('story', { arc: f.season.arcs.indexOf(f.arc) });
   },
   onAction(a) {
     if (a === 'left' || a === 'right') { this.bi = (this.bi + (a === 'left' ? -1 : 1) + this.tiles.length) % this.tiles.length; Audio.ui('move'); return this.mark(); }

@@ -13,8 +13,10 @@ import { Track } from '../world/track.js';
 import { drawCourseMap, fmt } from '../game/hud.js';
 import { drawMeter, demoState } from '../game/meters.js';
 import { CoursePreview } from '../game/gfx.js';
+import { ACCESSORIES } from '../data/accessories.js';
 
 // ---- helpers --------------------------------------------------------------------
+const ownedSP = () => ACCESSORIES.filter(a => a.cat === 'spcolor' && Save.profile?.acc?.owned?.[a.id]).map(a => [a.name, a.hex]);
 const DRV_COL = { FR: '#d01020', FF: '#1a7ad0', '4WD': '#2a9a3a' };
 const TIME_LBL = { night: '夜 (NIGHT)', dusk: '夕方 (DUSK)', day: '昼 (DAY)' };
 const attrChips = (c) => `<span class="chip2" style="background:${DRV_COL[c.drive]}">${c.drive}</span><span class="chip2" style="background:#7a1aa0">${c.category}</span><span class="chip2" style="background:#e07a00">${c.engine.type}</span>`;
@@ -252,7 +254,7 @@ UI.register({
     $('.pp', this.el).innerHTML = plate(); $('.cbx', this.el).innerHTML = consoleBox();
     this.ci = Math.max(0, Save.profile.cars.findIndex(c => c.uid === Save.profile.activeCar));
     this.render();
-    const items = [['使用登録', 'use', 'Car Select', 'key'], ['カーカスタマイズ', 'dress', 'Car Customize', 'car'], ['ホイール', 'wheel', 'Wheel', 'wheel'], ['メーター', 'meter', 'Meter', 'meter'], ['チューニング', 'tune', 'Tuning', 'wrench'], ['IN-STORE', 'store', 'Parts Shop', 'bag'], ['車両追加', 'add', 'Car Add', 'plus'], ['車両削除', 'del', 'Delete', 'trash'], ['モード選択', 'back', 'Mode Select', 'back']];
+    const items = [['使用登録', 'use', 'Car Select', 'key'], ['カーカスタマイズ', 'dress', 'Car Customize', 'car'], ['ホイール', 'wheel', 'Wheel', 'wheel'], ['メーター', 'meter', 'Meter', 'meter'], ['チューニング', 'tune', 'Tuning', 'wrench'], ['IN-STORE', 'store', 'Parts Shop', 'bag'], ['カップ・称号', 'acc', 'Accessory', 'key'], ['車両追加', 'add', 'Car Add', 'plus'], ['車両削除', 'del', 'Delete', 'trash'], ['モード選択', 'back', 'Mode Select', 'back']];
     const m = $('.g-menu', this.el);
     m.innerHTML = '<i class="mk l"></i>' + items.map(([l, a, en, ic]) => `<div class="scard hub" data-a="${a}" style="width:190px"><div class="en">${en}</div><div class="ic">${hubIcon(ic)}</div><div class="lab" style="background:linear-gradient(90deg,#0a5ac0,#2aa8ff)">${l}</div></div>`).join('') + '<i class="mk r"></i>';
     const tiles = $$('.scard', m);
@@ -292,6 +294,7 @@ UI.register({
     if (a === 'meter') { Audio.ui('ok'); return UI.go('meter', { uid: c.uid }); }
     if (a === 'tune') { Audio.ui('ok'); return UI.go('tuning', { uid: c.uid }); }
     if (a === 'store') { Audio.ui('ok'); return UI.go('store', { uid: c.uid }); }
+    if (a === 'acc') { Audio.ui('ok'); App.hubReturn = 'garage'; return UI.go('acccustom', { mode: 'custom', cat: 'cup' }); }
     if (a === 'del') {
       if (p.cars.length <= 1) { Audio.ui('error'); return dialog.alert('削除できません', '最低1台の車両が必要です。'); }
       if (!(await dialog.confirm('車両の削除', `<b>${esc(c.name)}</b>(${tuneLevel(c)})を削除しますか?<br><span style="color:#ff6a6a">チューニング・ドレスアップも失われます。元に戻せません。</span>`, '削除する', 'やめる'))) return;
@@ -351,7 +354,7 @@ UI.register({
   // list of options for the current category: [{html, value, desc, locked}]
   options() {
     const k = DRESS_CATS[this.ci].k, d = this.draft, style = this.base.body.style;
-    if (k === 'color') return PALETTE.map(([nm, hex]) => ({ html: `<div class="sw" style="background:${hex}"></div><div class="cap">${nm}</div>`, value: hex, desc: `ボディカラー:${nm}`, cur: d.color.hex === hex }));
+    if (k === 'color') return [...PALETTE, ...ownedSP()].map(([nm, hex]) => ({ html: `<div class="sw" style="background:${hex}"></div><div class="cap">${nm}</div>`, value: hex, desc: `ボディカラー:${nm}`, cur: d.color.hex === hex }));
     if (k === 'finish') return FINISHES.map(f => ({ html: `<div style="text-align:center"><div class="sw" style="margin:auto;background:${d.color.hex};${f.id === 'matte' ? 'box-shadow:none' : f.id === 'pearl' ? 'background-image:linear-gradient(135deg,rgba(255,255,255,.5),rgba(180,200,255,.3),rgba(255,220,255,.4))' : ''}"></div><div style="font-size:22px;font-style:italic;color:#333">${f.name}</div></div>`, value: f.id, desc: `塗装仕上げ:${f.jp}`, cur: d.color.finish === f.id }));
     if (k.startsWith('v_')) {
       const slot = k.slice(2); return VINYL_SLOTS[slot].designs.map(ds => ({ locked: Save.owns('vinyl', ds) ? null : `IN-STOREで購入 ¥${partPrice('vinyl', ds).toLocaleString()}`, html: `<div style="font-family:var(--jp);font-weight:900;font-size:26px;color:#222;text-align:center">${ds === 'none' ? 'なし' : VINYL_NAMES[ds]}<small style="display:block;font-size:14px;color:#888;font-family:var(--font)">${ds === 'none' ? 'Normal' : 'ORIGINAL VINYL'}</small></div>`, value: ds, desc: `${VINYL_SLOTS[slot].jp}:${VINYL_NAMES[ds]}${ds !== 'none' ? ' — 決定で位置・サイズ・角度を調整' : ''}`, cur: d.vinyl[slot].d === ds }));

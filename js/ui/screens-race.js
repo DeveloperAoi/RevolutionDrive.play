@@ -14,6 +14,11 @@ import { COURSES, courseById } from '../data/courses.js';
 import { CARS, buildSpec, carById } from '../data/cars.js';
 import { fmt, fmtDelta } from '../game/hud.js';
 import { storyFinish } from './screens-story.js';
+import { goWithRewards, cupSVG } from './screens-acc.js';
+import { accById } from '../data/accessories.js';
+import { findEpisode, condText, RACE_LINES } from '../data/story.js';
+import { portraitSVG } from './screens-story.js';
+import { addTokens, checkRewards } from '../data/accessories.js';
 const storyFinishWrap = (res, id) => { const d = storyFinish(res, id); Save.persistNow('story'); return d; };
 const RIVAL_NAMES = [['ハヤト', 'MIDNIGHT WOLVES', 2], ['リン', 'SKYLINE ANGELS', 4], ['ゴウ', 'IRON RIDGE', 3], ['ミサキ', 'NIGHT KITE', 5], ['ケンジ', 'RED SUNSET', 7], ['ユウ', 'BLUE FLAME', 1]];
 
@@ -33,6 +38,7 @@ UI.register({
         <div class="rh-toggles"><div class="rh-tg rh-tg-ghost"><span class="k">G</span>ゴースト<b>ON</b></div><div class="rh-tg rh-tg-line"><span class="k">L</span>ラインガイド<b>OFF</b></div></div>
         <div class="rh-warn">WRONG WAY — R でコース復帰</div>
       </div>
+      <div class="rh-story"></div><div class="rh-line"></div><div class="rh-cup"></div>
       <div class="hud-msg"></div>
       <div class="touch">
         <div class="tbtn l" data-t="left">◀</div><div class="tbtn r" data-t="right">▶</div>
@@ -111,7 +117,39 @@ UI.register({
     const btns = $$('.pause-menu .btn', this.el);
     this.pf = new Focus(btns, { axis: 'v', onSelect: (i) => this.pauseAct(i) });
     this.cleanup();
-    return start();
+    return start().then(() => this.extraHud(params));
+  },
+  // story overlay (clear condition, rival face + gap, in-race lines) and the cup holder widget
+  extraHud(params) {
+    const race = this.race; if (!race) return;
+    const S = $('.rh-story', this.el), Ln = $('.rh-line', this.el), Cup = $('.rh-cup', this.el);
+    const f = params.story ? findEpisode(params.story.epId) : null;
+    S.innerHTML = ''; Ln.className = 'rh-line'; S.style.display = f ? '' : 'none';
+    if (f) S.innerHTML = `<div class="cd"><div class="h">クリア条件</div><div class="t">${esc(condText(f.ep))}</div></div><div class="rv"><div class="tg">Target</div><div class="pt">${portraitSVG(f.ep.rival.p, 110, 'hud' + f.ep.id)}</div><div class="nm">${esc(f.ep.rival.name)}</div><div class="gp">--</div></div>`;
+    const cupIt = accById(Save.profile.acc?.eq?.cup);
+    Cup.style.display = cupIt ? '' : 'none'; if (cupIt) Cup.innerHTML = cupSVG(cupIt, 150);
+    let lastLine = -1e9, marks = [0.12, 0.45, 0.8], shown = 0, prevAhead = null, slosh = 0, sloshV = 0;
+    const say = (txt) => { if (!f) return; Ln.innerHTML = `<div class="b"><span class="n">${esc(f.ep.rival.name)}</span>${esc(txt)}</div><div class="pt">${portraitSVG(f.ep.rival.p, 120, 'ln' + f.ep.id)}</div>`; Ln.classList.add('on'); lastLine = race.clock; Audio.blip(990, 0.03, 'square', 0.04); };
+    const pickL = (k) => { const L = RACE_LINES[k]; return L[Math.floor(Math.random() * L.length)]; };
+    const loop = () => {
+      if (this.race !== race || race.disposed) return;
+      const pl = race.player, rv = race.cars.find(c => c !== pl);
+      if (f && pl && rv && race.state === 'race') {
+        const gap = rv.prog - pl.prog; // + : rival ahead
+        const g = $('.gp', S); if (g) { g.textContent = `${gap > 0 ? '-' : '+'}${Math.abs(gap).toFixed(1)}m`; g.className = 'gp ' + (gap > 0 ? 'bad' : 'good'); }
+        const fr = pl.prog / race.totalLen, ahead = gap < 0;
+        if (shown < marks.length && fr > marks[shown]) { shown++; say(Math.abs(gap) < 25 ? pickL('close') : pickL(ahead ? 'behind' : 'ahead')); }
+        else if (prevAhead !== null && ahead !== prevAhead && race.clock - lastLine > 6) say(pickL(ahead ? 'behind' : 'ahead'));
+        prevAhead = ahead;
+        if (race.clock - lastLine > 3.5) Ln.classList.remove('on');
+      }
+      if (cupIt && pl) { // liquid sloshes with lateral g
+        const ay = pl.veh.ay || 0; sloshV += (-ay * 0.06 - slosh) * 0.25 - sloshV * 0.12; slosh += sloshV; const lq = Cup.querySelector('ellipse:nth-of-type(3)');
+        Cup.querySelector('svg').style.transform = `rotate(${Math.max(-8, Math.min(8, slosh * 4))}deg)`; if (lq) lq.setAttribute('transform', `rotate(${Math.max(-25, Math.min(25, slosh * 22))} 50 16)`);
+      }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
   },
   cleanup() { if (this.race) { this.race.dispose(); this.race = null; App.race = null; } },
   leave() { this.cleanup(); Object.keys(Input.touch).forEach(k => Input.touch[k] = 0); Input.touch.steer = null; },
@@ -165,6 +203,9 @@ UI.register({
       if (res.time <= e.target && !st.cleared) { st.cleared = true; credits += e.reward; rp += 150; tp += 15; event = { cleared: true, reward: e.reward }; }
       else event = { cleared: res.time <= e.target, reward: 0 };
     }
+    // customize tokens (100 = 1 CP) and achievement rewards
+    if (!this.params.story) { const tk = 15 + (res.won ? 10 : 0) + (newRecord ? 10 : 0) + (this.params.online ? 15 : 0); addTokens(p, tk); res.tokens = tk; }
+    checkRewards(p);
     const rankBefore = rankOf(p.rp);
     p.credits += credits; p.rp += rp; p.xp += rp; p.tp = (p.tp ?? 0) + tp;
     // unlocks
@@ -236,7 +277,7 @@ UI.register({
     const btns = d.params.online ? [['オンライン対戦へ', 'online'], ['START MENU', 'start'], ['MODE SELECT', 'mode']] : d.params.event ? [['RETRY', 'retry'], ['EVENT LIST', 'special'], ['MODE SELECT', 'mode']] : [['次へ(コース選択)', 'course'], ['RETRY', 'retry'], ['GARAGE', 'garage'], ['MODE SELECT', 'mode']];
     $('.rs-btns', this.el).innerHTML = btns.map(([l, a], i) => `<div class="mtile ${i ? 'k' : 'y'}" data-a="${a}" style="width:250px;height:84px;font-size:24px">${l}</div>`).join('');
     const tiles = $$('.rs-btns .mtile', this.el);
-    this.focus = new Focus(tiles, { axis: 'h', onSelect: (i, b) => { stopTimer(); Audio.ui('ok'); const a = b.dataset.a; if (a === 'retry') UI.go('race', d.params); else UI.go(a); } });
+    this.focus = new Focus(tiles, { axis: 'h', onSelect: (i, b) => { stopTimer(); Audio.ui('ok'); const a = b.dataset.a; if (a === 'retry') goWithRewards('race', d.params); else goWithRewards(a); } });
     const ap = this.focus.apply.bind(this.focus); this.focus.apply = () => { ap(); tiles.forEach((t, k) => t.classList.toggle('sel', k === this.focus.i)); }; this.focus.apply();
     // staged reveal with matching SE
     this.el.classList.remove('reveal'); void this.el.offsetWidth; this.el.classList.add('reveal');

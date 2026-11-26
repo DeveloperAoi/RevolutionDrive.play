@@ -10,13 +10,13 @@ export const SEASONS = [
         courseId: 'akane', dir: 'fwd', time: 'night', weather: 'clear',
         story: '赤嶺峠に現れた新しい走り屋。地元チーム「赤嶺ナイトキッズ」が黙っているはずがない──。',
         episodes: [
-          { id: 'a1e1', title: '夜の挑戦状', tp: 5, credits: 600, rival: { name: 'ケンジ', team: '赤嶺ナイトキッズ', carId: 'sylph_180x', skill: 0.82, aggr: 0.3, tune: 0, p: { hair: 'spiky', hc: '#2a1a10', skin: '#f2c8a0', eye: '#3a2a1a', acc: 'none' } },
+          { id: 'a1e1', title: '夜の挑戦状', tp: 5, credits: 600, cond: { type: 'gap', m: 300 }, rival: { name: 'ケンジ', team: '赤嶺ナイトキッズ', carId: 'sylph_180x', skill: 0.82, aggr: 0.3, tune: 0, p: { hair: 'spiky', hc: '#2a1a10', skin: '#f2c8a0', eye: '#3a2a1a', acc: 'none' } },
             intro: [['rival', 'おい、見ない顔だな。この峠はオレたちナイトキッズのシマだぜ。'], ['me', '走りに来ただけだ。文句があるなら、峠で聞く。'], ['rival', '上等だ!下りで勝負してやる。ついてこれるかな!']],
             win: 'くっ…ヘアピンの立ち上がりで離された…。お前、ただ者じゃねぇな。', lose: 'ハハッ、まだまだだな!出直してきな!' },
           { id: 'a1e2', title: 'ナイトキッズの意地', tp: 5, credits: 700, rival: { name: 'タクマ', team: '赤嶺ナイトキッズ', carId: 'ryujin_r5', skill: 0.85, aggr: 0.4, tune: 1, p: { hair: 'slick', hc: '#111', skin: '#e8b890', eye: '#222', acc: 'shades' } },
             intro: [['rival', 'ケンジを負かしたってのはお前か。'], ['rival', 'ロータリーの伸びを甘く見るなよ。トンネルを抜けたら勝負だ。'], ['me', '…いいぜ。']],
             win: 'ロータリーが…回し切れなかった…。', lose: '直線じゃロータリーには勝てねぇよ!' },
-          { id: 'a1e3', title: '赤い夕陽', tp: 5, credits: 800, rival: { name: 'ミサキ', team: 'レッドサンセット', carId: 'tsubame_f', skill: 0.87, aggr: 0.35, tune: 2, p: { hair: 'long', hc: '#8a1a1a', skin: '#f6d2b0', eye: '#5a1a1a', acc: 'earring' } },
+          { id: 'a1e3', title: '赤い夕陽', tp: 5, credits: 800, cond: { type: 'gap', m: 150 }, rival: { name: 'ミサキ', team: 'レッドサンセット', carId: 'tsubame_f', skill: 0.87, aggr: 0.35, tune: 2, p: { hair: 'long', hc: '#8a1a1a', skin: '#f6d2b0', eye: '#5a1a1a', acc: 'earring' } },
             intro: [['rival', 'ナイトキッズを2人抜きしたんですって?噂になってるわよ。'], ['rival', 'FFでも峠は速い。それを教えてあげる。'], ['me', '車種で勝負は決まらない。']],
             win: 'ふふ…完敗ね。リーダーのゴウに気をつけなさい。', lose: 'FFの軽さ、思い知ったかしら?' },
           { id: 'a1e4', title: '赤嶺の帝王', tp: 10, credits: 1500, boss: true, rival: { name: 'ゴウ', team: '赤嶺ナイトキッズ', carId: 'sora_gt3', skill: 0.9, aggr: 0.55, tune: 3, p: { hair: 'buzz', hc: '#3a3a3a', skin: '#d8a070', eye: '#111', acc: 'scar' } },
@@ -29,7 +29,7 @@ export const SEASONS = [
         courseId: 'shiranami', dir: 'fwd', time: 'dusk', weather: 'clear',
         story: '赤嶺を制した噂は海沿いの尾根道まで届いた。高速コーナーの白波スカイラインで、新たな挑戦者が待つ。',
         episodes: [
-          { id: 'a2e1', title: '尾根道の誘い', tp: 6, credits: 900, rival: { name: 'ハルカ', team: 'シーサイドウィング', carId: 'kurogane_s2', skill: 0.9, aggr: 0.4, tune: 3, p: { hair: 'bob', hc: '#e0c070', skin: '#f6d6b8', eye: '#2a5a8a', acc: 'none' } },
+          { id: 'a2e1', title: '尾根道の誘い', tp: 6, credits: 900, cond: { type: 'gap', m: 200 }, rival: { name: 'ハルカ', team: 'シーサイドウィング', carId: 'kurogane_s2', skill: 0.9, aggr: 0.4, tune: 3, p: { hair: 'bob', hc: '#e0c070', skin: '#f6d6b8', eye: '#2a5a8a', acc: 'none' } },
             intro: [['rival', 'あなたが赤嶺の新しい王様?ここは高速ステージよ。'], ['me', '速さはどこでも変わらない。'], ['rival', 'じゃあ、見せてもらおうかしら。']],
             win: 'アクセルを抜かないのね…!', lose: '高速コーナーはまだ早かったみたいね。' },
           { id: 'a2e2', title: '最新鋭の挑戦', tp: 6, credits: 1000, rival: { name: 'ジン', team: 'シーサイドウィング', carId: 'tsubame_86n', skill: 0.92, aggr: 0.45, tune: 3, p: { hair: 'messy', hc: '#4a3020', skin: '#efc49a', eye: '#3a2a1a', acc: 'cap' } },
@@ -85,6 +85,10 @@ export const SEASONS = [
   },
 ];
 
+export const condText = (ep) => ep.cond?.type === 'gap' ? `${ep.rival.name}と${ep.cond.m}m以内でゴールせよ` : `${ep.rival.name}に勝利せよ`;
+export const condMet = (ep, res) => res.time != null && (res.won || (ep.cond?.type === 'gap' && res.rivalGap != null && res.rivalGap <= ep.cond.m));
+// in-race lines: [progress 0..1, line] (generic fallback by situation)
+export const RACE_LINES = { ahead: ['ついてこれるか!', 'まだまだこんなもんじゃねぇ!', 'この先のコーナーで突き放す!'], behind: ['やるじゃねえか!そうこなくちゃな!!', 'くっ…速い!', 'なんだ、この突っ込みは…!'], close: ['離れねぇ…!', 'ピッタリ付いてきやがる…!'] };
 export const allEpisodes = () => SEASONS.flatMap(s => s.arcs.flatMap(a => a.episodes.map(e => ({ season: s, arc: a, ep: e }))));
 export const findEpisode = (id) => allEpisodes().find(x => x.ep.id === id);
 // story rank: 1 + floor(points / 200); each first clear = 100 pts (boss 200)

@@ -282,6 +282,7 @@ export class Race {
       if (car.finished || car.net) continue;
       if (car.prog >= this.totalLen - (t.closed ? 0 : 6)) {
         car.finished = true; car.finishTime = this.raceTime;
+        if (car !== this.player && this.player && this.rivalGap == null) this.rivalGap = car.prog - this.player.prog;
         if (car === this.player) this.onPlayerFinish();
       }
       if (t.closed) {
@@ -354,7 +355,7 @@ export class Race {
       ghost: { frames: this.ghostRec, spec: this.player.spec, dress: this.player.dress },
       distance: this.player.prog,
       advantage: (() => { const r = this.cars.find(c => c !== this.player); return r ? this.player.prog - r.prog : null; })(),
-      condition: this.player.condition,
+      condition: this.player.condition, rivalGap: this.rivalGap ?? null,
     };
     setTimeout(() => { if (!this.disposed && this.cfg.onFinish) this.cfg.onFinish(res); }, 3200);
   }

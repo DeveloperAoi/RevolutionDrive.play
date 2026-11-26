@@ -31,10 +31,12 @@ function speedStreaks() {
 }
 
 // top-left player plate (white card, avatar, name, rank)
+import { ACCESSORIES } from '../data/accessories.js';
+const ACC_BY = Object.fromEntries(ACCESSORIES.map(a => [a.id, a]));
 export function plate() {
   const p = Save.profile; if (!p) return '';
   return `<div class="af-plate"><div class="av">${avatarSVG(p.icon, 128)}</div>
-    <div class="nm"><div class="team">${Save.mode === 'account' ? 'ACCOUNT' : 'GUEST'} · ${esc(p.teamName || '---')}</div><div class="drv">${esc(p.driverName || 'DRIVER')}</div><div class="aff">所属 ${esc(p.teamName || '未所属')}</div></div>
+    <div class="nm"><div class="team">${Save.mode === 'account' ? 'ACCOUNT' : 'GUEST'} · ${esc(p.teamName || '---')}</div><div class="drv">${esc(p.driverName || 'DRIVER')}</div><div class="aff">所属 ${esc(p.teamName || '未所属')}${p.acc?.eq?.title ? `<span class="ttl">${esc((ACC_BY[p.acc.eq.title] || {}).name || '')}</span>` : ''}</div></div>
     <div class="rk">${rankBadge(p.rp, 100)}</div></div>`;
 }
 
