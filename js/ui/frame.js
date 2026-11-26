@@ -49,8 +49,20 @@ export function consoleBox() {
 export function logoMark() {
   return `<div class="af-logo"><div class="l1">REV<em>O</em>LUTION</div><div class="l2">DRIVE</div></div>`;
 }
+// arcade-cabinet style button glyphs (original drawings): round lever/D-pad plate, yellow START button, blue VIEW button
+export function kgIcon(kind) {
+  const tri = (r) => `<path d="M0 -15 L6 -7 L-6 -7Z" fill="#fff" transform="rotate(${r})"/>`;
+  const plate = (inner) => `<svg viewBox="-24 -24 48 48" width="46" height="46"><defs><radialGradient id="kgp" cx="50%" cy="35%" r="70%"><stop offset="0" stop-color="#5a5f68"/><stop offset="1" stop-color="#16181c"/></radialGradient></defs><circle r="22" fill="url(#kgp)" stroke="#c9ced6" stroke-width="2.5"/>${inner}</svg>`;
+  if (kind === 'dpad') return `<i class="kg">${plate(tri(0) + tri(90) + tri(180) + tri(270) + '<circle r="4.5" fill="#9aa1ab"/>')}</i>`;
+  if (kind === 'lr') return `<i class="kg">${plate(tri(90) + tri(270) + '<circle r="4.5" fill="#9aa1ab"/>')}</i>`;
+  if (kind === 'ud') return `<i class="kg">${plate(tri(0) + tri(180) + '<circle r="4.5" fill="#9aa1ab"/>')}</i>`;
+  const btn = (c0, c1, c2, label, tc) => `<i class="kg"><svg viewBox="-24 -24 48 48" width="46" height="46"><defs><radialGradient id="kg${label}" cx="45%" cy="30%" r="75%"><stop offset="0" stop-color="${c0}"/><stop offset=".55" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></radialGradient></defs><circle r="22.5" fill="#1a1a1a"/><circle r="19.5" fill="url(#kg${label})"/><ellipse cx="-4" cy="-10" rx="10" ry="4.5" fill="rgba(255,255,255,.55)"/><text y="5" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="${label.length > 4 ? 8.5 : 10}" fill="${tc}">${label}</text></svg></i>`;
+  if (kind === 'ok') return btn('#fff7b0', '#ffd000', '#b07800', 'START', '#2a1a00');
+  if (kind === 'back' || kind === 'view') return btn('#bfe6ff', '#2a8cff', '#0a3a9a', 'VIEW', '#fff');
+  return '';
+}
 export function keyGuide(items = [['dpad', '選択'], ['ok', '決定'], ['back', '戻る']]) {
-  const ic = { dpad: '<i class="kg dpad">✚</i>', ok: '<i class="kg ok">ENTER</i>', back: '<i class="kg back">ESC</i>', lr: '<i class="kg dpad">⇆</i>', ud: '<i class="kg dpad">⇅</i>' };
+  const ic = { dpad: kgIcon('dpad'), ok: kgIcon('ok'), back: kgIcon('back'), lr: kgIcon('lr'), ud: kgIcon('ud'), view: kgIcon('view') };
   return `<div class="af-keys">${items.map(([k, t]) => `<span>${ic[k] || ''}${t}</span>`).join('')}</div>`;
 }
 export function titleTimer(title, timerId = 'af-timer') {
@@ -59,20 +71,30 @@ export function titleTimer(title, timerId = 'af-timer') {
 
 // generic car silhouette icon with a highlighted zone
 export function carIcon(zone = 'body', hl = '#3dbb4a') {
-  const base = '#9aa0a8', z = (k) => zone === k ? hl : 'none';
+  // detailed side view silhouette (original): smooth body, glasshouse with pillars, rims; the selected zone glows
+  const on = (k) => zone === k;
+  const bodyFill = on('body') ? hl : 'url(#ciB)';
+  const wheel = (cx) => `<g transform="translate(${cx} 66)"><circle r="16" fill="#111"/><circle r="11.5" fill="${on('wheel') ? hl : 'url(#ciR)'}" stroke="#222" stroke-width="1"/>${[0, 72, 144, 216, 288].map(r => `<rect x="-1.6" y="-10.5" width="3.2" height="8" fill="#2a2d33" transform="rotate(${r})"/>`).join('')}<circle r="2.6" fill="#555"/></g>`;
   return `<svg viewBox="0 0 200 90" width="170" height="77">
-    <path d="M14 62 L20 44 L58 38 L82 18 L140 16 L168 38 L188 44 L190 62 Z" fill="${zone === 'body' ? hl : base}" stroke="#333" stroke-width="3"/>
-    <path d="M86 22 L136 20 L156 38 L74 40 Z" fill="#e8edf2" stroke="#333" stroke-width="2"/>
-    ${zone === 'vinyl' ? '<path d="M24 50 L180 46 L182 54 L22 58Z" fill="#ffd400"/>' : ''}
-    <path d="M166 50 L192 50 L194 64 L170 64Z" fill="${z('front')}"/>
-    <path d="M8 50 L30 50 L28 64 L8 64Z" fill="${z('rear')}"/>
-    <path d="M150 34 L186 42 L186 47 L148 40Z" fill="${z('hood')}"/>
-    <path d="M44 60 L156 60 L156 66 L44 66Z" fill="${z('side')}"/>
-    ${zone === 'wing' ? `<path d="M6 24 L44 24 L44 30 L6 30Z M18 30 L22 40 M34 30 L32 40" fill="${hl}" stroke="${hl}" stroke-width="4"/>` : ''}
-    ${zone === 'muffler' ? `<rect x="2" y="60" width="16" height="7" rx="3" fill="${hl}"/>` : ''}
-    ${zone === 'meter' ? `<circle cx="100" cy="45" r="30" fill="#222" stroke="${hl}" stroke-width="5"/><path d="M100 45 L118 30" stroke="#f33" stroke-width="4"/>` : ''}
-    <circle cx="52" cy="64" r="15" fill="${zone === 'wheel' ? hl : '#333'}" stroke="#222" stroke-width="3"/><circle cx="52" cy="64" r="6" fill="#ccc"/>
-    <circle cx="152" cy="64" r="15" fill="${zone === 'wheel' ? hl : '#333'}" stroke="#222" stroke-width="3"/><circle cx="152" cy="64" r="6" fill="#ccc"/>
+    <defs><linearGradient id="ciB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9dde2"/><stop offset=".45" stop-color="#a8aeb6"/><stop offset="1" stop-color="#5d636b"/></linearGradient>
+    <linearGradient id="ciG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9fb4c8"/><stop offset="1" stop-color="#2b3644"/></linearGradient>
+    <radialGradient id="ciR" cx="40%" cy="35%"><stop offset="0" stop-color="#f4f6f8"/><stop offset="1" stop-color="#8a9097"/></radialGradient></defs>
+    <ellipse cx="102" cy="80" rx="92" ry="5" fill="rgba(0,0,0,.35)"/>
+    <path d="M10 63 C9 55 12 49 22 47 L60 41 C70 33 82 22 96 20 L134 19 C146 20 156 30 166 39 L186 43 C193 45 195 52 194 63 L178 64 C176 50 160 46 152 52 C147 56 146 60 146 64 L68 64 C67 50 52 45 42 51 C37 55 36 60 36 64 Z" fill="${bodyFill}" stroke="#2b2e33" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M68 40 C78 30 88 24 98 23 L132 22 C141 23 149 31 156 39 Z" fill="url(#ciG)" stroke="#1d2026" stroke-width="1.6"/>
+    <path d="M112 22 L110 40" stroke="#1d2026" stroke-width="3.2"/>
+    <path d="M60 48 L188 47" stroke="rgba(255,255,255,.55)" stroke-width="1.4"/>
+    <path d="M84 41 L82 63 M134 40 L136 63" stroke="rgba(0,0,0,.35)" stroke-width="1"/>
+    <rect x="120" y="44" width="9" height="2.4" rx="1" fill="#2b2e33"/>
+    ${zone === 'vinyl' ? '<path d="M18 54 L190 50 L191 57 L17 60Z" fill="#ffd400" opacity=".95"/>' : ''}
+    <path d="M182 46 L194 48 L194 56 L184 55Z" fill="${on('front') ? hl : '#fff'}" opacity="${on('front') ? 1 : .8}"/>
+    <path d="M10 50 L20 48 L20 56 L10 57Z" fill="${on('rear') ? hl : '#d32'}"/>
+    <path d="M150 37 L182 43 L181 46 L148 41Z" fill="${on('hood') ? hl : 'none'}"/>
+    <path d="M70 59 L144 59 L144 64 L70 64Z" fill="${on('side') ? hl : 'none'}"/>
+    ${zone === 'wing' ? `<path d="M4 30 L40 29 L40 34 L4 35Z" fill="${hl}"/><path d="M16 35 L20 46 M32 34 L30 45" stroke="${hl}" stroke-width="4"/>` : ''}
+    ${zone === 'muffler' ? `<rect x="2" y="61" width="16" height="6" rx="3" fill="${hl}"/>` : ''}
+    ${zone === 'meter' ? `<circle cx="100" cy="45" r="28" fill="#111" stroke="${hl}" stroke-width="5"/><path d="M100 45 L117 31" stroke="#f33" stroke-width="4"/>` : ''}
+    ${wheel(52)}${wheel(162)}
     ${zone === 'height' ? `<path d="M100 2 L108 12 L92 12Z M100 88 L108 78 L92 78Z" fill="${hl}"/>` : ''}
   </svg>`;
 }

@@ -42,7 +42,7 @@ export class Gfx {
     if (v.camera.aspect !== this.aspect) { v.camera.aspect = this.aspect; v.camera.updateProjectionMatrix(); }
     if (this.hq && v.post !== false) {
       this.renderPass.scene = v.scene; this.renderPass.camera = v.camera;
-      this.bloom.strength = v.bloom ?? 0.55;
+      this.bloom.strength = v.bloom ?? 0.55; this.bloom.threshold = v.bloom != null && v.bloom < 0.3 ? 0.95 : 0.82;
       this.composer.render(dt);
     } else this.renderer.render(v.scene, v.camera);
   }
@@ -63,6 +63,7 @@ export class Showroom {
     s.fog = new THREE.Fog(0x1a1c20, 18, 40);
     s.environment = gfx.env;
     this.camera = new THREE.PerspectiveCamera(32, 16 / 9, 0.1, 200);
+    this.bloom = 0.1;
     // floor + glowing turntable
     const floor = new THREE.Mesh(new THREE.CircleGeometry(40, 64), new THREE.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.35, metalness: 0.6 }));
     floor.rotation.x = -Math.PI / 2; s.add(floor);
