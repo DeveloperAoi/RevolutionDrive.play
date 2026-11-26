@@ -617,3 +617,45 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color:
 .nw-body .dt { margin: 8px 0 18px; font-size: 18px; color: #666; }
 .nw-body ul { margin: 0; padding-left: 28px; font-family: var(--jp); font-weight: 700; font-size: 24px; line-height: 44px; }
 .nw-body li::marker { color: #ff7a00; }
+
+/* ---- online lobby ---- */
+.ol-sub { margin-top: 4px; font-size: 26px; font-style: italic; color: #ffd400; text-shadow: 0 3px 0 #000; }
+.ol-panel { position: absolute; left: 640px; top: 160px; width: 1200px; height: 740px; z-index: 5; display: grid; place-items: center; }
+.ol-keys .af-keys { z-index: 7; }
+.ol-msg { padding: 30px 60px; background: rgba(10,12,16,.85); color: #fff; font-family: var(--jp); font-weight: 900; font-size: 32px; border: 3px solid #36c3ff; }
+.ol-search { width: 1000px; padding: 40px; background: rgba(10,14,24,.88); border: 3px solid #36c3ff; box-shadow: 0 0 40px rgba(54,195,255,.35); text-align: center; color: #fff; }
+.ol-search .radar { position: relative; width: 240px; height: 240px; margin: 0 auto 26px; border-radius: 50%; border: 3px solid #36c3ff; background: repeating-radial-gradient(circle, rgba(54,195,255,.15) 0 2px, transparent 2px 40px); overflow: hidden; }
+.ol-search .radar i { position: absolute; inset: 0; background: conic-gradient(from 0deg, rgba(54,195,255,.65), transparent 25%); animation: olspin 2s linear infinite; }
+.ol-search .radar b { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px; border-radius: 50%; background: #ffd400; box-shadow: 0 0 12px #ffd400; }
+@keyframes olspin { to { transform: rotate(360deg); } }
+.ol-search .big { font-family: var(--jp); font-weight: 900; font-size: 46px; }
+.ol-search .dots::after { content: '…'; animation: pulse 1s infinite; }
+.ol-search .info { margin-top: 12px; font-family: var(--jp); font-weight: 700; font-size: 22px; color: #9cf; }
+.ol-host, .ol-join { width: 1000px; padding: 34px 40px; background: rgba(10,14,24,.9); border: 3px solid #ff7a00; color: #fff; text-align: center; }
+.ol-host .lbl, .ol-join .lbl { font-family: var(--jp); font-weight: 900; font-size: 26px; color: #ffd400; }
+.ol-host .code, .ol-join .code { display: flex; justify-content: center; gap: 14px; margin: 18px 0; }
+.ol-host .code i, .ol-join .code i { display: grid; place-items: center; width: 96px; height: 120px; font-style: normal; font-size: 84px; color: #111; background: linear-gradient(180deg, #fff, #d9dde3); border: 4px solid #222; border-radius: 10px; box-shadow: 0 6px 0 #000; }
+.ol-join .code i.cur { border-color: #ffd400; box-shadow: 0 0 18px #ffb000, 0 6px 0 #000; }
+.ol-host .hint { font-family: var(--jp); font-weight: 700; font-size: 20px; color: #ccc; }
+.ol-host .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0 10px; }
+.ol-host .opt { height: 56px; }
+.ol-host .wait { margin-top: 12px; font-family: var(--jp); font-weight: 900; font-size: 24px; color: #9cf; }
+.spin { display: inline-block; width: 22px; height: 22px; margin-right: 12px; vertical-align: -3px; border: 4px solid rgba(255,255,255,.25); border-top-color: #36c3ff; border-radius: 50%; animation: olspin .8s linear infinite; }
+.ol-join .pad { display: grid; grid-template-columns: repeat(3, 150px); gap: 12px; justify-content: center; margin-top: 10px; }
+.ol-join .pad b { height: 74px; display: grid; place-items: center; font-size: 40px; color: #fff; background: linear-gradient(180deg, #4a4e56, #1c1e22); border: 2px solid #888; border-radius: 10px; cursor: pointer; }
+.ol-join .pad b.ok { background: linear-gradient(180deg, #ffe24a, #ff9a00); color: #111; font-family: var(--jp); font-weight: 900; font-size: 30px; }
+.ol-join .pad b.del { font-size: 34px; }
+.ol-vs { position: relative; width: 1160px; height: 640px; }
+.ol-vs .mf { position: absolute; left: 0; right: 0; top: 0; text-align: center; font-size: 80px; font-style: italic; color: #ffd400; -webkit-text-stroke: 3px #111; text-shadow: 0 6px 0 #000, 0 0 30px #ff7a00; animation: pulse 1.2s infinite; }
+.ol-vs .vs { position: absolute; left: 50%; top: 250px; transform: translateX(-50%); font-size: 130px; font-style: italic; color: #fff; -webkit-text-stroke: 4px #c00; text-shadow: 0 8px 0 #000; z-index: 2; }
+.ol-pc { position: absolute; top: 140px; width: 520px; height: 300px; padding: 24px; display: flex; flex-direction: column; gap: 12px; color: #111; background: linear-gradient(160deg, #fff, #d6dae0); border: 4px solid #1d2026; box-shadow: 0 8px 0 rgba(0,0,0,.4); }
+.ol-pc.l { left: 0; clip-path: polygon(0 0, 100% 0, 92% 100%, 0 100%); } .ol-pc.r { right: 0; clip-path: polygon(8% 0, 100% 0, 100% 100%, 0 100%); padding-left: 60px; background: linear-gradient(160deg, #ffe9d6, #f0c8a8); }
+.ol-pc .av { position: absolute; right: 50px; top: 20px; border: 3px solid #222; border-radius: 10px; overflow: hidden; } .ol-pc.r .av { right: 20px; }
+.ol-pc .team { font-size: 18px; color: #c00; } .ol-pc .nm { font-size: 46px; font-style: italic; max-width: 330px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ol-pc .car { display: flex; align-items: center; gap: 10px; margin-top: 46px; font-size: 24px; font-style: italic; } .ol-pc .car img { width: 170px; height: 96px; object-fit: contain; }
+.ol-pc .rk { position: absolute; right: 60px; bottom: 20px; } .ol-pc.r .rk { right: 30px; }
+.ol-vs .crs { position: absolute; left: 0; right: 0; top: 480px; text-align: center; font-family: var(--jp); font-weight: 900; font-size: 34px; color: #fff; text-shadow: 0 3px 0 #000; }
+.ol-vs .st { position: absolute; left: 0; right: 0; top: 550px; text-align: center; font-family: var(--jp); font-weight: 900; font-size: 26px; color: #fff; background: rgba(10,12,16,.75); padding: 10px; }
+
+.ol-host .opt .val { white-space: nowrap; font-family: var(--jp); font-weight: 900; font-size: 22px; }
+.ol-pc .car span { max-width: 230px; }

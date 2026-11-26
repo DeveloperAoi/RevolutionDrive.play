@@ -80,3 +80,13 @@ docs/DESIGN.md        設計書
 ```
 
 収録されている車両・メーカー・コース・名称はすべて架空のものです。
+
+## オンライン対戦(Ver.1.50〜)
+- WORLDWIDE MATCH(自動マッチング)と CODE BATTLE(6桁のルームコード)に対応。
+- 走行データは WebRTC(P2P)で送受信。マッチングと接続情報の受け渡しは Cloud Firestore の `rooms` コレクションで行います。直接つながらない環境では Firestore 経由のリレー(低速)に自動で切り替わります。
+- 必要な Firebase 設定:
+  1. Authentication → Sign-in method → **匿名(Anonymous)** を有効化(ゲストでの対戦用)
+  2. `firebase/firestore.rules` を Firestore のルールに貼り付けて公開
+
+## 外部3Dモデル(GLB)の車
+`js/data/glbcars.js` にパックを登録し、`js/data/cars.js` の車に `model: { pack, node }` を指定すると、その3Dモデルで表示されます(タイヤの自動分割、塗装色の変更、ライトに対応)。公開ゲームで再配布できるライセンスのもの、かつ実在の市販車ではないものを使用してください。

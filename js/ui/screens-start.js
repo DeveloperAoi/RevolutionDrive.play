@@ -143,7 +143,7 @@ UI.register({
     this.focus = new Focus(cards, { axis: 'h', wrap: false, onSelect: (i) => this.pick(i) });
     const st = $('.acct-state', this.el);
     st.innerHTML = !Net.isConfigured() ? '<span style="color:#ffd400">⚠ サーバー未設定のため現在ご利用いただけません</span>'
-      : Net.currentUser ? `<span style="color:#3dff8a">● ログイン中: ${esc(Net.currentUser.email)}</span>` : '<span style="color:#cde">ログイン / 新規登録</span>';
+      : Net.currentUser && !Net.currentUser.isAnonymous ? `<span style="color:#3dff8a">● ログイン中: ${esc(Net.currentUser.email)}</span>` : '<span style="color:#cde">ログイン / 新規登録</span>';
     Audio.playMusic('menu');
     startTimer($('.timer', this.el), 30, () => this.pick(this.focus.i));
   },
@@ -167,7 +167,7 @@ UI.register({
     App.gfx.setView(App.titleScene);
     this.from = params.from || 'entry';
     try { await Net.init(); } catch { }
-    this.view(Net.currentUser ? 'info' : (params.view || 'login'));
+    this.view(Net.currentUser && !Net.currentUser.isAnonymous ? 'info' : (params.view || 'login'));
   },
   async view(v) {
     this.v = v; const box = $('.acct', this.el);

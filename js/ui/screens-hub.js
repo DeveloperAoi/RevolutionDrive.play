@@ -202,3 +202,16 @@ UI.register({
     if (a === 'back' || a === 'ok') { Audio.ui('back'); UI.go(Save.profile ? this.back : 'title'); }
   },
 });
+
+// ───────── ONLINE BATTLE menu ─────────
+hubScreen({
+  id: 'online', title: 'ONLINE BATTLE', scene: 'cars', loop: false,
+  hint: 'オンライン対戦のモードを選択してください',
+  items: () => [
+    { art: 'online', en: 'Worldwide Match', jp: 'ワールドワイド', band: 'linear-gradient(90deg,#0a5ac0,#2aa8ff)', desc: '世界中のプレイヤーと自動でマッチング。近いランクの相手が優先されます。', go: () => UI.go('netlobby', { kind: 'world' }) },
+    { art: 'team', en: 'Code Battle', jp: 'ルーム作成', band: 'linear-gradient(90deg,#d02a10,#ff7a00)', desc: '6桁のルームコードを発行してフレンドと対戦。コースはあなたが決められます。', go: () => UI.go('netlobby', { kind: 'create' }) },
+    { art: 'config', en: 'Code Battle', jp: 'コード入力', band: 'linear-gradient(90deg,#6aa000,#c8e000)', desc: 'フレンドから聞いたルームコードを入力して参加します。', go: () => UI.go('netlobby', { kind: 'join' }) },
+    { art: 'mode', en: 'Back', jp: '前に戻る', band: 'linear-gradient(90deg,#111,#3a3e46)', go: () => UI.go('start', { index: 2 }) },
+  ],
+  back: () => UI.go('start', { index: 2 }),
+});

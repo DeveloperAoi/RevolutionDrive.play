@@ -39,10 +39,10 @@ export class Race {
     // spawn
     const grid = [];
     if (cfg.player) grid.push({ ...cfg.player, ctrl: 'player' });
-    for (const r of cfg.rivals || []) grid.push({ ...r, ctrl: 'ai' });
+    for (const r of cfg.rivals || []) grid.push({ ...r, ctrl: r.ctrl || 'ai' });
     const n = grid.length;
     grid.forEach((g, k) => {
-      const lane = n === 1 ? 0 : (k % 2 === 0 ? -1.9 : 1.9);
+      const lane = g.lane ?? (n === 1 ? 0 : (k % 2 === 0 ? -1.9 : 1.9));
       const back = Math.floor(k / 2) * 9;
       const p = this.track.pointAt(this.track.closed ? this.track.length - 1.5 - back : Math.max(1, 13 - back), lane);
       const veh = new Vehicle(g.spec);
@@ -53,6 +53,7 @@ export class Race {
       const mu = MUFFLERS.find(m => m.id === g.dress?.muffler);
       const car = {
         ...g, veh, model, hint: -1, prog: 0, lastS: null, lap: 0, finished: false, finishTime: null,
+        net: g.ctrl === 'net' ? g.net : null,
         ai: g.ctrl === 'ai' ? new AIDriver(this.track, g.skill ?? 0.9, g.aggr ?? 0.5) : null,
         engine: Audio.createEngine(g.spec, { player: g.ctrl === 'player', muffler: mu ? mu.loud : 0 }),
         surfY: p.y, pitch: 0, roll: 0, wrong: 0, stuck: 0, offroad: 0, color: g.ctrl === 'player' ? '#ffd400' : '#ff3b3b',
@@ -224,6 +225,7 @@ export class Race {
     while (this.acc >= DT) {
       this.acc -= DT;
       for (const car of this.cars) {
+        if (car.net) { this.applyNet(car, running); continue; }
         let ctl;
         if (car.finished && car.ctrl === 'player') ctl = car.ai ? car.ai.control(car.veh, this.world.grip, DT) : (car.ai = new AIDriver(this.track, 0.8)).control(car.veh, this.world.grip, DT);
         else if (car.ai) ctl = car.ai.control(car.veh, this.world.grip, DT);
@@ -253,6 +255,7 @@ export class Race {
     // rules
     if (this.state === 'race' || this.state === 'finish') this.rules(dt);
 
+    if (this.cfg.net) this.cfg.net.tick(this);
     // ghost record / playback
     if (this.player && this.state === 'race') {
       this.ghostT += dt;
@@ -265,7 +268,7 @@ export class Race {
       car.model.pose(car.veh, { y: car.surfY, pitch: car.pitch, roll: car.roll });
       car.model.setBrake(car.ctrl === 'player' && inp ? Math.max(inp.brake, car.veh.gear < 0 ? 0.5 : 0) : (car.veh.ax < -3 ? 1 : 0));
       const dist = car === this.focus ? 0 : Math.hypot(car.veh.x - this.focus.veh.x, car.veh.z - this.focus.veh.z);
-      if (car.engine) car.engine.update(car.veh, car.ctrl === 'player' && inp && running ? Math.max(inp.throttle, car.finished ? 0.3 : 0) : (car.ai ? 0.8 : 0), { dist, gravel: car.offroad });
+      if (car.engine) car.engine.update(car.veh, car.ctrl === 'player' && inp && running ? Math.max(inp.throttle, car.finished ? 0.3 : 0) : (car.ai || car.net ? 0.8 : 0), { dist, gravel: car.offroad });
     }
     this.updateCamera(dt);
     this.world.update(this.camera, dt);
@@ -276,7 +279,7 @@ export class Race {
   rules(dt) {
     const t = this.track;
     for (const car of this.cars) {
-      if (car.finished) continue;
+      if (car.finished || car.net) continue;
       if (car.prog >= this.totalLen - (t.closed ? 0 : 6)) {
         car.finished = true; car.finishTime = this.raceTime;
         if (car === this.player) this.onPlayerFinish();
@@ -317,7 +320,28 @@ export class Race {
     }
   }
 
+  // online rival: kinematic car driven by the interpolated remote state
+  applyNet(car, running) {
+    const v = car.veh, s = running ? car.net.remoteAt(this.raceTime) : null;
+    if (s) {
+      const px = v.x, pz = v.z;
+      v.x = s.x; v.z = s.z; v.yaw = s.yaw; v.vx = s.vx; v.vz = s.vz; v.steer = s.st; v.rpm = s.rpm; v.gear = s.g;
+      v.ax = s.b ? -6 : 0;
+      const along = Math.sin(v.yaw) * s.vx + Math.cos(v.yaw) * s.vz;
+      const dw = along / v.spec.tire.radius * DT; v.wheelRotF = (v.wheelRotF || 0) + dw; v.wheelRotR = (v.wheelRotR || 0) + dw;
+      car.prog = s.p;
+      void px; void pz;
+    }
+    const pr = this.track.project(v.x, v.z, car.hint, car.surfY); car.hint = pr.i;
+    const L = v.spec.wheelbase / 2, fx = Math.sin(v.yaw), fz = Math.cos(v.yaw);
+    const yf = this.track.project(v.x + fx * L, v.z + fz * L, pr.i, car.surfY).y, yr = this.track.project(v.x - fx * L, v.z - fz * L, pr.i, car.surfY).y;
+    car.surfY = pr.y; v.y = pr.y; car.pitch = Math.atan2(yf - yr, L * 2);
+    car.roll = Math.atan(pr.bank) * (fx * this.track.tx[pr.a] + fz * this.track.tz[pr.a]);
+    if (car.net.remoteFinish != null && !car.finished) { car.finished = true; car.finishTime = car.net.remoteFinish; }
+  }
+
   onPlayerFinish() {
+    if (this.cfg.net && this.player.finishTime != null) this.cfg.net.sendFinish(this.player.finishTime);
     this.state = 'finish'; this.finishClock = this.clock;
     const won = this.cfg.mode === 'battle' ? this.positionOf(this.player) === 1 && this.player.finishTime != null : null;
     this.msg(this.cfg.mode === 'battle' ? (won ? 'WIN!!' : 'LOSE') : 'GOAL!!');

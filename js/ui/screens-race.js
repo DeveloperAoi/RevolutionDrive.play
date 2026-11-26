@@ -11,7 +11,7 @@ import { Input } from '../core/input.js';
 import { Save, rankOf } from '../core/save.js';
 import { Race } from '../game/race.js';
 import { COURSES, courseById } from '../data/courses.js';
-import { CARS, buildSpec } from '../data/cars.js';
+import { CARS, buildSpec, carById } from '../data/cars.js';
 import { fmt, fmtDelta } from '../game/hud.js';
 const RIVAL_NAMES = [['ハヤト', 'MIDNIGHT WOLVES', 2], ['リン', 'SKYLINE ANGELS', 4], ['ゴウ', 'IRON RIDGE', 3], ['ミサキ', 'NIGHT KITE', 5], ['ケンジ', 'RED SUNSET', 7], ['ユウ', 'BLUE FLAME', 1]];
 
@@ -52,7 +52,7 @@ UI.register({
     const course = courseById(params.courseId);
     const rec = Save.profile.records[`${params.courseId}:${params.dir}`];
     const rivals = [];
-    if (params.mode === 'battle') {
+    if (params.mode === 'battle' && !params.online) {
       // rival: a different car with tuning scaled by CPU level
       const pool = CARS.filter(c => c.id !== gc.carId);
       const rc = pool[Math.floor(Math.random() * pool.length)];
@@ -61,20 +61,29 @@ UI.register({
       const nm = RIVAL_NAMES[Math.floor(Math.random() * RIVAL_NAMES.length)];
       rivals.push({ spec: buildSpec(rc, { engine: t, tires: t, weight: t, suspension: t }), dress: { paint: ['red', 'black', 'blue', 'silver'][Math.floor(Math.random() * 4)], wheel: 'gold6', spoiler: 'mid', aero: 'street', decal: 'number', number: '99' }, skill: lvl.skill, aggr: lvl.aggr, name: nm[0], team: nm[1], carName: rc.name, rp: Math.round(Save.profile.rp * 0.8 + lvl.skill * 600 - 400), icon: nm[2] });
     }
+    const net = params.online || null;
+    if (net && net.peer) {
+      const o = net.peer; const base = carById(o.carId);
+      rivals.push({ ctrl: 'net', net, spec: buildSpec(base, o.tune || {}, o.setup || {}, o.dress), dress: o.dress, name: o.name, team: o.team, carName: o.carName || base.name, rp: o.rp || 0, icon: o.icon || 0, lane: net.role === 'host' ? 1.9 : -1.9 });
+    }
     const hud = { root: $('.rh', this.el), msg: $('.hud-msg', this.el) };
 
     const start = async () => {
       const ghost = params.mode === 'trial' ? await Save.loadGhost(params.courseId, params.dir) : null;
       this.race = new Race(App.gfx, {
         mode: params.mode, courseId: params.courseId, dir: params.dir, weather: params.weather, time: params.time,
-        player: { spec, dress: gc.dress, name: Save.profile.driverName }, rivals, ghost, best: rec, hud,
+        player: { spec, dress: gc.dress, name: Save.profile.driverName, lane: net ? (net.role === 'host' ? -1.9 : 1.9) : undefined }, rivals, net, ghost, best: rec, hud,
         playerInfo: { name: Save.profile.driverName, team: Save.profile.teamName, rp: Save.profile.rp, icon: Save.profile.icon, carName: gc.name },
         settings: App.settings, meter: gc.meter, onFinish: (res) => this.finish(res),
         onSetting: (k, v) => { App.settings[k] = v; Save.touch('settings'); },
       });
       App.race = this.race;
       const race = this.race; App.gfx.setView({ scene: race.scene, camera: race.camera, update: (dt) => { if (this.race === race) race.update(dt); } });
-      this.race.start();
+      if (net) {
+        this.race.msg('READY', 'small');
+        net.on('closed', () => { if (this.race === race && race.state !== 'finish' && net.remoteFinish == null) { race.msg('相手が退出しました', 'small'); toast('対戦相手が退出しました — このまま走り切ると勝利です'); } });
+        net.scheduleStart(() => { if (this.race === race) race.start(); }); net.send('ready');
+      } else this.race.start();
     };
     Audio.stopMusic(0.3);
     const touchOn = App.settings.touch === 'on' || (App.settings.touch === 'auto' && App.isTouch);
@@ -88,7 +97,14 @@ UI.register({
   },
   cleanup() { if (this.race) { this.race.dispose(); this.race = null; App.race = null; } },
   leave() { this.cleanup(); Object.keys(Input.touch).forEach(k => Input.touch[k] = 0); },
+  async quitOnline() {
+    if (this._q) return; this._q = true;
+    const ok = await dialog.confirm('対戦を終了', 'オンライン対戦を終了しますか?<br>(途中で抜けると敗北になります)', '終了する', '続ける');
+    this._q = false; if (!ok) return;
+    await this.params.online.leave(); this.cleanup(); Audio.stopEngines(); UI.go('online');
+  },
   togglePause() {
+    if (this.params?.online) return this.quitOnline();
     if (!this.race || this.race.state === 'finish') return;
     const on = !this.race.paused; this.race.setPaused(on);
     $('.pause-menu', this.el).classList.toggle('on', on);
@@ -118,7 +134,8 @@ UI.register({
     }
     if (res.mode === 'battle') {
       p.stats.battles = (p.stats.battles || 0) + 1;
-      const lvl = this.params.cpu || { reward: 700 };
+      if (this.params.online) { p.stats.online = (p.stats.online || 0) + 1; if (res.won) p.stats.onlineWins = (p.stats.onlineWins || 0) + 1; }
+      const lvl = this.params.online ? { reward: 1200 } : this.params.cpu || { reward: 700 };
       if (res.won) { p.stats.wins++; credits += lvl.reward; rp += 120; tp += 10; } else { credits += Math.round(lvl.reward * 0.25); rp += 25; tp += 3; }
       if (res.time != null && (!prev || res.time < prev.best)) { newRecord = true; p.records[key] = { best: res.time, sections: res.sections, carId: gc.carId, car: gc.name, date: Date.now() }; }
     }
@@ -136,6 +153,7 @@ UI.register({
     const unlocked = [];
     for (const c of COURSES) if (c.unlock && !p.unlocked.courses.includes(c.id) && p.rp >= c.unlock.rp) { p.unlocked.courses.push(c.id); unlocked.push(c.jp); }
     await Save.persistNow('race-end');
+    if (this.params.online) this.params.online.leave();
     res.cars = this.race ? this.race.cars.length : 2;
     if (this.race) { res.targets = this.race.ui ? this.race.ui.targets : targetTimes(this.race); res.weather = this.params.weather; res.tod = this.params.time; const rv = this.race.cars.find(c => c !== this.race.player); if (rv) { res.rivalName = rv.name; res.rivalCar = rv.carName; } }
     UI.go('result', { res, prev, newRecord, ghostSaved: newRecord && res.mode === 'trial', credits, rp, tp, rankBefore, rankAfter: rankOf(p.rp), unlocked, event, params: this.params });
@@ -196,7 +214,7 @@ UI.register({
       this.rankings(res, gc);
     } else medals.innerHTML = '';
     // buttons
-    const btns = d.params.event ? [['RETRY', 'retry'], ['EVENT LIST', 'special'], ['MODE SELECT', 'mode']] : [['次へ(コース選択)', 'course'], ['RETRY', 'retry'], ['GARAGE', 'garage'], ['MODE SELECT', 'mode']];
+    const btns = d.params.online ? [['オンライン対戦へ', 'online'], ['START MENU', 'start'], ['MODE SELECT', 'mode']] : d.params.event ? [['RETRY', 'retry'], ['EVENT LIST', 'special'], ['MODE SELECT', 'mode']] : [['次へ(コース選択)', 'course'], ['RETRY', 'retry'], ['GARAGE', 'garage'], ['MODE SELECT', 'mode']];
     $('.rs-btns', this.el).innerHTML = btns.map(([l, a], i) => `<div class="mtile ${i ? 'k' : 'y'}" data-a="${a}" style="width:250px;height:84px;font-size:24px">${l}</div>`).join('');
     const tiles = $$('.rs-btns .mtile', this.el);
     this.focus = new Focus(tiles, { axis: 'h', onSelect: (i, b) => { stopTimer(); Audio.ui('ok'); const a = b.dataset.a; if (a === 'retry') UI.go('race', d.params); else UI.go(a); } });

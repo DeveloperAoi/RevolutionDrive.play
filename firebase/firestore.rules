@@ -22,6 +22,31 @@ service cloud.firestore {
         && request.resource.data.carId is string;
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
+    // ---- online battle rooms (matchmaking + WebRTC signalling) ----
+    function signedIn() { return request.auth != null; }
+    function room(code) { return get(/databases/$(database)/documents/rooms/$(code)).data; }
+    function isMember(code) { return signedIn() && (room(code).host == request.auth.uid || room(code).guest == request.auth.uid); }
+    match /rooms/{code} {
+      allow read: if signedIn();
+      // the creator becomes the host; rooms are small and short-lived
+      allow create: if signedIn() && request.resource.data.host == request.auth.uid
+        && request.resource.data.guest == null && request.resource.size() < 20000;
+      // host may update anything except the host field; a player may claim the empty guest seat;
+      // the guest may leave (status 'closed')
+      allow update: if signedIn() && request.resource.data.host == resource.data.host && request.resource.size() < 20000 && (
+        resource.data.host == request.auth.uid
+        || (resource.data.guest == null && request.resource.data.guest == request.auth.uid)
+        || (resource.data.guest == request.auth.uid && request.resource.data.guest == request.auth.uid));
+      allow delete: if signedIn() && (resource.data.host == request.auth.uid || resource.data.ts < request.time.toMillis() - 3600000);
+      // signal/{host|guest} and relay/{host|guest}: each side writes only its own document
+      match /{sub}/{side} {
+        allow read: if (sub == 'signal' || sub == 'relay') && isMember(code);
+        allow create, update: if (sub == 'signal' || sub == 'relay') && isMember(code)
+          && ((side == 'host' && room(code).host == request.auth.uid) || (side == 'guest' && room(code).guest == request.auth.uid))
+          && request.resource.size() < 60000;
+        allow delete: if (sub == 'signal' || sub == 'relay') && signedIn() && room(code).host == request.auth.uid;
+      }
+    }
     // everything else is closed by default
     match /{document=**} { allow read, write: if false; }
   }

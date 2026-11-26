@@ -76,7 +76,7 @@ const MODES = [
   { id: 'story', name: 'STORY', sub: 'Single-Player', jp: 'ストーリー', desc: '各地の峠に君臨する走り屋たちが君を待ち受ける!戦いを重ねて卓越した技術を手に入れろ。', reward: 'ストーリー報酬', grad: ['#d07a1a', '#301a06'], on: false, glyph: '章' },
   { id: 'battle', name: 'COURSE BATTLE', sub: 'Course Battle', jp: 'コースバトル', desc: 'CPUライバルと1対1のバトル。難易度を選んで、峠の頂点を奪い取れ!', reward: '勝利ボーナス / TP', grad: ['#d01a2a', '#300608'], on: true, glyph: 'VS' },
   { id: 'local', name: 'LOCAL BATTLE', sub: 'Local Battle', jp: 'ローカルバトル', desc: '同じ端末・同じネットワーク内のプレイヤーと対戦。', reward: '—', grad: ['#1ab07a', '#062a1a'], on: false, glyph: 'LAN' },
-  { id: 'online', name: 'ONLINE BATTLE', sub: 'Online Battle', jp: 'オンラインバトル', desc: 'CODE BATTLE(ルームコード対戦)と WORLDWIDE MATCH(世界マッチング)。', reward: 'オンラインRP', grad: ['#1a9ad0', '#06202e'], on: false, glyph: 'NET' },
+  { id: 'online', name: 'ONLINE BATTLE', sub: 'Online Battle', jp: 'オンラインバトル', desc: 'CODE BATTLE(ルームコード対戦)と WORLDWIDE MATCH(世界マッチング)。', reward: 'オンラインRP', grad: ['#1a9ad0', '#06202e'], on: true, glyph: 'NET' },
   { id: 'garage', name: 'GARAGE', sub: 'Garage', jp: 'ガレージ', desc: '登録車両の切替・追加登録(最大5台)・ドレスアップ・ホイール・メーター・チューニング。', reward: '', grad: ['#8a8f98', '#16181c'], on: true, glyph: '⚙' },
   { id: 'profile', name: 'PROFILE', sub: 'Profile', jp: 'プロフィール', desc: 'プレイヤー情報・戦績・アカウント状態・同期状態の確認。', reward: '', grad: ['#4a4ad0', '#0a0a28'], on: true, glyph: 'ID' },
   { id: 'settings', name: 'SETTINGS', sub: 'Settings', jp: '設定', desc: 'BGM・効果音、トランスミッション、ドリフトアシスト、カメラ、タッチ操作、カスタマイズ時間制限。', reward: '', grad: ['#4a8a4a', '#0a1a0a'], on: true, glyph: '⚙' },
@@ -135,6 +135,7 @@ UI.register({
     Audio.ui('ok');
     if (m.id === 'trial' || m.id === 'battle') { App.pending.mode = m.id; App.pending.event = null; UI.go('course'); }
     else if (m.id === 'special') UI.go('special');
+    else if (m.id === 'online') UI.go('online');
     else if (m.id === 'garage') UI.go('garage');
     else if (m.id === 'profile') UI.go('profile');
     else UI.go('settings', { back: 'mode' });
