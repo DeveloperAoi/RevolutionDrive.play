@@ -1,6 +1,14 @@
 // REVOLUTION DRIVE — update log (newest first). Shown in お知らせ / UPDATE LOG.
 export const UPDATES = [
   {
+    ver: 'Ver.1.52.00', date: '2026-11-27', title: '新車7台を追加',
+    items: [
+      '3Dモデルの新車7台:SORA VORTEX TS / KAZEMOTO TERRA V10 / TSUBAME ARC HYBRID / KUROGANE LUMEN S / AOBA FOCALE RS / RYUJIN SCARLET V12 / KUROGANE HIGHLAND SV',
+      'ハイパーカー・SUV・ラグジュアリーなど新カテゴリ',
+      '3Dモデル: "Ultimate Low-Poly Car Pack" by ProbablyNotG — CC BY 4.0',
+    ],
+  },
+  {
     ver: 'Ver.1.51.00', date: '2026-11-27', title: 'スマートフォン対応',
     items: [
       'スマホの横画面に最適化(縦向きのときは「横向きにしてください」を表示)',

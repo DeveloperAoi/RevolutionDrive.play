@@ -195,7 +195,7 @@ UI.register({
     $('.nw-vers', this.el).innerHTML = UPDATES.map((u, k) => `<div class="v${k === this.i ? ' on' : ''}" data-k="${k}"><b>${u.ver}</b><small>${u.date}</small>${k === 0 ? '<i>NEW</i>' : ''}</div>`).join('');
     $$('.nw-vers .v', this.el).forEach(v => v.onclick = () => { this.i = +v.dataset.k; Audio.ui('move'); this.render(); });
     const u = UPDATES[this.i];
-    $('.nw-body', this.el).innerHTML = `<div class="hd"><span>${u.ver}</span>${esc(u.title)}</div><div class="dt">${u.date} 公開 · 現在のバージョン ${VERSION}</div><ul>${u.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+    $('.nw-body', this.el).innerHTML = `<div class="hd"><span>${u.ver}</span>${esc(u.title)}</div><div class="dt">${u.date} 公開 · 現在のバージョン ${VERSION}</div><ul>${u.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul><div class="cr">CREDITS — 3D car models: "Ultimate Low-Poly Car Pack" by ProbablyNotG (sketchfab.com/mr_c0neDude), licensed under CC BY 4.0. Names and performance figures in this game are fictional.</div>`;
   },
   onAction(a) {
     if (a === 'up' || a === 'down') { this.i = Math.max(0, Math.min(UPDATES.length - 1, this.i + (a === 'up' ? -1 : 1))); Audio.ui('move'); return this.render(); }

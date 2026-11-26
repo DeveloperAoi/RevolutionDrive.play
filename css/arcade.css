@@ -690,3 +690,5 @@ body.is-touch .af-keys .kgt b { width: 76px; height: 64px; }
 .touch[data-steer="slide"] .tslide { display: block; }
 .touch[data-steer="slide"] .tbtn.l, .touch[data-steer="slide"] .tbtn.r, .touch[data-steer="tilt"] .tbtn.l, .touch[data-steer="tilt"] .tbtn.r { display: none; }
 .touch[data-steer="tilt"]::after { content: '端末を傾けてハンドル操作'; position: absolute; left: 60px; bottom: 80px; font-family: var(--jp); font-weight: 900; font-size: 26px; color: rgba(255,255,255,.5); }
+
+.nw-body .cr { margin-top: 22px; padding-top: 12px; border-top: 2px solid #ccc; font-size: 15px; color: #666; }

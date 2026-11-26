@@ -90,3 +90,6 @@ docs/DESIGN.md        設計書
 
 ## 外部3Dモデル(GLB)の車
 `js/data/glbcars.js` にパックを登録し、`js/data/cars.js` の車に `model: { pack, node }` を指定すると、その3Dモデルで表示されます(タイヤの自動分割、塗装色の変更、ライトに対応)。公開ゲームで再配布できるライセンスのもの、かつ実在の市販車ではないものを使用してください。
+
+## クレジット
+- 3D car models: "Ultimate Low-Poly Car Pack" by ProbablyNotG (https://sketchfab.com/mr_c0neDude) — [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Source: https://sketchfab.com/3d-models/ultimate-low-poly-car-pack-fadf9f031dbc4da384dc2593394f81dd (ゲーム内の車名・性能は架空のものです)

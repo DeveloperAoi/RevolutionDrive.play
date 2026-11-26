@@ -4,7 +4,7 @@ import { Audio } from './audio/audio.js';
 import { carById, buildSpec } from './data/cars.js';
 import { Input } from './core/input.js';
 
-export const VERSION = 'Ver.1.51.00';
+export const VERSION = 'Ver.1.52.00';
 export const SITE_URL = 'https://github.com/DeveloperAoi/RevolutionDrive.play';
 
 export const App = {

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { UI, Focus, $, $$, el, esc, dialog, toast, sleep, startTimer, stopTimer, playerPlate, consolePlate, footer, rankBadge, avatarSVG } from './core.js';
 import { App } from '../app.js';
 import { Input } from '../core/input.js';
+import { packReady } from '../world/glbCar.js';
 import { Audio } from '../audio/audio.js';
 import { Save, rankOf } from '../core/save.js';
 import * as Net from '../net/firebase.js';
@@ -22,7 +23,7 @@ export const makerLogo = (mk) => { const m = MAKERS[mk]; return `<div style="dis
 export const thumbCache = {};
 let thumbR = null;
 export function carThumb(carId, dress = {}) {
-  const key = carId + JSON.stringify(dress); if (thumbCache[key]) return thumbCache[key];
+  const m = carById(carId).model; const key = carId + JSON.stringify(dress) + (m && packReady(m.pack) ? ':glb' : ''); if (thumbCache[key]) return thumbCache[key];
   try {
     if (!thumbR) {
       thumbR = { r: new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }), scene: new THREE.Scene(), cam: new THREE.PerspectiveCamera(28, 16 / 9, 0.1, 100) };

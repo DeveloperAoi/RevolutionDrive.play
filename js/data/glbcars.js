@@ -7,7 +7,7 @@
 import { loadPack } from '../world/glbCar.js';
 
 export const PACKS = [
-  // { id: 'example', url: 'assets/cars/example_pack.glb', credit: 'Model: AUTHOR (CC-BY 4.0) https://...' },
+  { id: 'lowpoly', url: 'assets/cars/lowpoly_car_pack.glb', credit: '"Ultimate Low-Poly Car Pack" by ProbablyNotG (https://sketchfab.com/mr_c0neDude) — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)' },
 ];
 
 export function preloadPacks() {
