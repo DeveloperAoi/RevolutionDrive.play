@@ -827,3 +827,8 @@ body.is-touch .af-keys .kgt b { width: 76px; height: 64px; }
 .rw-it .why { flex: 1; display: flex; align-items: center; padding: 0 18px; font-family: var(--jp); font-weight: 700; font-size: 26px; color: #222; } .rw-it .why b { color: #c00; margin-left: 10px; }
 .rw-note { margin-top: 14px; text-align: center; font-family: var(--jp); font-weight: 900; } .rw-note em { display: block; font-style: normal; font-size: 28px; color: #ff9a2a; } .rw-note span { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 22px; color: #eee; }
 .sr-panels .ctk { font-family: var(--jp); font-weight: 900; font-size: 18px; color: #9cf; margin-top: 4px; } .sr-panels .ctk b { color: #ffd400; } .sr-panels .ctk small { color: #888; }
+.scard.tncard { height: 170px; background: linear-gradient(180deg, #5a5e66, #26282d 70%, #141518); }
+.tncard .pic { position: absolute; left: 0; right: 0; top: 8px; display: grid; place-items: center; filter: drop-shadow(0 4px 4px rgba(0,0,0,.6)); }
+.tncard .lab { bottom: 30px !important; background: linear-gradient(90deg, #0a4ab0, #2aa8ff); font-size: 20px; }
+.tncard .pts { position: absolute; left: 0; right: 0; bottom: 0; height: 30px; display: grid; place-items: center; font-size: 18px; font-style: italic; color: #fff; background: #0a0b0d; }
+.tncard .lv { position: absolute; right: 36px; top: 6px; font-size: 15px; font-style: italic; color: #ffd400; }

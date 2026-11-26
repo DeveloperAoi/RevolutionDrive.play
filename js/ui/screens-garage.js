@@ -455,6 +455,30 @@ UI.register({
   },
 });
 
+// tuning part illustrations (original vector art, metallic look)
+function partSVG(id) {
+  const M = (d) => `<svg viewBox="0 0 120 80" width="132" height="88"><defs><linearGradient id="pm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".5" stop-color="#9aa0a8"/><stop offset="1" stop-color="#4a4e56"/></linearGradient></defs>${d}</svg>`;
+  const P = {
+    power: '<rect x="30" y="20" width="60" height="44" rx="6" fill="url(#pm)" stroke="#222" stroke-width="2"/><rect x="38" y="10" width="44" height="12" fill="#c01010" stroke="#222" stroke-width="2"/><circle cx="46" cy="42" r="8" fill="#333"/><circle cx="74" cy="42" r="8" fill="#333"/>',
+    ecu: '<rect x="24" y="18" width="72" height="46" rx="4" fill="#1a1c20" stroke="#888" stroke-width="2"/><rect x="34" y="28" width="30" height="20" fill="#2a8a3a"/><path d="M70 28 H88 M70 36 H88 M70 44 H82" stroke="#ffd400" stroke-width="3"/><path d="M30 64 V72 M42 64 V72 M54 64 V72 M66 64 V72 M78 64 V72 M90 64 V72" stroke="#bbb" stroke-width="3"/>',
+    intake: '<ellipse cx="40" cy="40" rx="24" ry="24" fill="#d01010" stroke="#222" stroke-width="2"/><ellipse cx="40" cy="40" rx="14" ry="14" fill="url(#pm)"/><path d="M60 34 H100 V46 H60" fill="url(#pm)" stroke="#222" stroke-width="2"/>',
+    turbo: '<circle cx="54" cy="42" r="26" fill="url(#pm)" stroke="#222" stroke-width="2"/><circle cx="54" cy="42" r="12" fill="#333"/><path d="M54 30 L58 42 L54 54 L50 42Z" fill="#bbb"/><path d="M80 34 H104 V50 H80" fill="#c08a20" stroke="#222" stroke-width="2"/>',
+    trans: '<rect x="20" y="26" width="60" height="32" rx="8" fill="url(#pm)" stroke="#222" stroke-width="2"/><path d="M80 34 L104 38 V46 L80 50Z" fill="#888" stroke="#222" stroke-width="2"/><path d="M40 26 V10" stroke="#222" stroke-width="5"/><circle cx="40" cy="9" r="6" fill="#111"/>',
+    clutch: '<circle cx="60" cy="40" r="30" fill="url(#pm)" stroke="#222" stroke-width="2"/><circle cx="60" cy="40" r="20" fill="#c08a20"/><circle cx="60" cy="40" r="7" fill="#333"/>',
+    diff: '<circle cx="60" cy="40" r="22" fill="url(#pm)" stroke="#222" stroke-width="2"/><path d="M10 40 H38 M82 40 H110" stroke="#666" stroke-width="8"/><circle cx="60" cy="40" r="8" fill="#c01010"/>',
+    susp: '<path d="M60 8 V22" stroke="#666" stroke-width="8"/><path d="M46 22 H74" stroke="#222" stroke-width="4"/><path d="M50 26 L70 32 L50 38 L70 44 L50 50 L70 56 L50 62" stroke="#d8c020" stroke-width="5" fill="none"/><rect x="54" y="26" width="12" height="44" fill="url(#pm)" stroke="#222"/>',
+    camber: '<circle cx="60" cy="42" r="26" fill="#111" transform="rotate(-12 60 42)"/><circle cx="60" cy="42" r="14" fill="url(#pm)"/><path d="M30 76 L90 76" stroke="#888" stroke-width="3"/>',
+    align: '<path d="M14 40 H106" stroke="url(#pm)" stroke-width="10" stroke-linecap="round"/><circle cx="20" cy="40" r="9" fill="#333"/><circle cx="100" cy="40" r="9" fill="#333"/><path d="M50 26 L60 40 L70 26" stroke="#ffd400" stroke-width="4" fill="none"/>',
+    brake: '<circle cx="56" cy="40" r="30" fill="url(#pm)" stroke="#222" stroke-width="2"/><circle cx="56" cy="40" r="10" fill="#333"/><path d="M76 18 C96 26 96 54 76 62 L70 54 C82 48 82 32 70 26Z" fill="#c01010" stroke="#222" stroke-width="2"/>',
+    brakeparts: `<circle cx="56" cy="40" r="30" fill="url(#pm)" stroke="#222" stroke-width="2"/><g stroke="#666" stroke-width="2">${[0, 30, 60, 90, 120, 150].map(a => `<path d="M56 40 L${56 + 26 * Math.cos(a * Math.PI / 90)} ${40 + 26 * Math.sin(a * Math.PI / 90)}"/>`).join('')}</g><path d="M78 16 C98 26 98 54 78 64 L72 56 C84 48 84 32 72 24Z" fill="#ffd400" stroke="#222" stroke-width="2"/>`,
+    weight: '<path d="M30 30 H90 L98 66 H22Z" fill="url(#pm)" stroke="#222" stroke-width="2"/><path d="M48 30 C48 16 72 16 72 30" fill="none" stroke="#222" stroke-width="5"/><text x="60" y="58" text-anchor="middle" font-family="Arial Black" font-size="16" fill="#c01010">-kg</text>',
+    rigidity: '<path d="M14 60 L40 20 L66 60 L92 20 L106 60" stroke="url(#pm)" stroke-width="8" fill="none" stroke-linejoin="round"/><path d="M14 60 H106" stroke="#888" stroke-width="6"/>',
+    rollbar: '<path d="M22 70 V30 C22 14 98 14 98 30 V70" stroke="url(#pm)" stroke-width="9" fill="none"/><path d="M22 40 L98 66" stroke="#9aa0a8" stroke-width="6"/>',
+    tire: `<circle cx="60" cy="40" r="32" fill="#111"/><circle cx="60" cy="40" r="18" fill="url(#pm)"/><g stroke="#333" stroke-width="3">${[0, 1, 2, 3, 4, 5, 6, 7].map(k => `<path d="M${60 + 26 * Math.cos(k * 0.785)} ${40 + 26 * Math.sin(k * 0.785)} L${60 + 31 * Math.cos(k * 0.785)} ${40 + 31 * Math.sin(k * 0.785)}"/>`).join('')}</g>`,
+    compound: '<circle cx="60" cy="40" r="32" fill="#111"/><circle cx="60" cy="40" r="18" fill="url(#pm)"/><path d="M60 8 A32 32 0 0 1 92 40" stroke="#ffd400" stroke-width="5" fill="none"/>',
+  };
+  return M(P[id] || P.power);
+}
 function hubIcon(k) {
   const P = { key: '<circle cx="34" cy="40" r="14" fill="none" stroke="#fff" stroke-width="7"/><path d="M46 40 H88 M74 40 V54 M84 40 V50" stroke="#fff" stroke-width="7"/>',
     car: '<path d="M14 58 L22 42 L44 38 L56 26 L84 26 L96 40 L108 44 L108 58 Z" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/><circle cx="38" cy="60" r="8" fill="#fff"/><circle cx="88" cy="60" r="8" fill="#fff"/>',
@@ -693,9 +717,9 @@ UI.register({
     $('.tn-cats', this.el).innerHTML = TUNE_CATS.map((c, i) => `<b style="padding:4px 20px;font-size:18px;font-style:italic;cursor:pointer;clip-path:polygon(10% 0,100% 0,90% 100%,0 100%);background:${i === this.ci ? 'linear-gradient(90deg,#ffd000,#ff8a00)' : 'rgba(20,22,26,.85)'};color:${i === this.ci ? '#111' : '#ddd'}" data-i="${i}">${c.name}</b>`).join('');
     $$('.tn-cats b', this.el).forEach(b => b.onclick = () => { this.ci = +b.dataset.i; Audio.ui('move'); this.render(0); });
     const parts = this.parts();
-    $('.tn-strip', this.el).innerHTML = '<i class="mk l"></i>' + parts.map(p => { const lv = this.gc.tune[p.id] || 0; return `<div class="scard" style="background:linear-gradient(180deg,#f4f6f8,#c8ccd2);height:170px"><div style="position:absolute;left:0;right:0;top:14px;text-align:center;font-size:54px;color:#444">${PART_ICON[TUNE_CATS[this.ci].id]}</div>
-      <div class="lab" style="bottom:28px;background:linear-gradient(90deg,#1a5ad0,#36c3ff);font-size:20px">${p.jp}</div><div style="position:absolute;left:0;right:0;bottom:2px;text-align:center;font-size:18px;font-style:italic;color:#111">${lv >= TUNE_MAX ? 'MAX' : tuneCost(lv + 1) + ' pts.'}</div>
-      <div style="position:absolute;right:34px;top:8px;font-size:15px;font-style:italic;color:#c00">Lv.${lv}</div></div>`; }).join('') + '<i class="mk r"></i>';
+    $('.tn-strip', this.el).innerHTML = '<i class="mk l"></i>' + parts.map(p => { const lv = this.gc.tune[p.id] || 0; return `<div class="scard tncard"><div class="pic">${partSVG(p.id)}</div>
+      <div class="lab">${p.jp}</div><div class="pts">${lv >= TUNE_MAX ? 'MAX' : tuneCost(lv + 1) + ' pts.'}</div>
+      <div class="lv">Lv.${lv}</div></div>`; }).join('') + '<i class="mk r"></i>';
     const cards = $$('.tn-strip .scard', this.el);
     this.focus = new Focus(cards, { axis: 'h', index: Math.min(idx, cards.length - 1), onChange: (i) => this.info(i), onSelect: (i) => this.buy(i) });
     const ap = this.focus.apply.bind(this.focus); this.focus.apply = () => { ap(); cards.forEach((c, j) => c.classList.toggle('sel', j === this.focus.i)); }; this.focus.apply();
@@ -709,7 +733,7 @@ UI.register({
     const fxRows = [['パワー', 'power'], ['コーナリング', 'handling'], ['スタビリティ', 'stability']];
     $('.tn-left', this.el).innerHTML = `<div style="display:inline-block;padding:6px 30px;background:linear-gradient(180deg,#e8f4ff,#8ad0ff);color:#0a2a6a;border-radius:8px;font-size:34px;font-style:italic;box-shadow:0 4px 0 #000">Tune Lv.${total}→${lv >= TUNE_MAX ? total : total + 1}</div>
       <div style="margin-top:14px;padding:20px 24px;background:linear-gradient(180deg,#2a2e35,#111);border:3px solid #777;clip-path:polygon(0 0,100% 0,95% 100%,0 100%)">
-        <div style="display:flex;align-items:center;gap:20px"><div style="width:110px;height:110px;display:grid;place-items:center;font-size:70px;background:#ddd;color:#333;border-radius:10px">${PART_ICON[TUNE_CATS[this.ci].id]}</div><div style="font-family:var(--jp);font-weight:900;font-size:36px">${p.jp}<div style="font-size:20px;color:#ffd400">Lv.${lv} / ${TUNE_MAX}</div></div></div>
+        <div style="display:flex;align-items:center;gap:20px"><div style="width:130px;height:110px;display:grid;place-items:center;background:linear-gradient(180deg,#5a5e66,#1c1e22);border-radius:10px">${partSVG(p.id)}</div><div style="font-family:var(--jp);font-weight:900;font-size:36px">${p.jp}<div style="font-size:20px;color:#ffd400">Lv.${lv} / ${TUNE_MAX}</div></div></div>
         <div style="margin-top:14px;color:#fff">${segBars(fxRows, carStats(cur), carStats(nxt))}</div>
         <div style="margin-top:12px;font-family:var(--jp);font-weight:900;font-size:22px;color:#ddd">${esc(p.desc)}</div>
         <div style="margin-top:8px;font-size:18px;color:#aaa">${cur.engine.hp}PS → <b style="color:#3dff8a">${nxt.engine.hp}PS</b> · ${cur.mass}kg → <b style="color:#3dff8a">${nxt.mass}kg</b> · 必要 <b style="color:#ffd400">${lv >= TUNE_MAX ? '—' : tuneCost(lv + 1) + ' pts.'}</b></div></div>`;
