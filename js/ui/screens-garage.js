@@ -732,7 +732,7 @@ UI.register({
 // ───────────────────────── COURSE SELECT ─────────────────────────
 const CPU_LV = [{ id: 'easy', name: 'EASY', skill: 0.82, aggr: 0.2, reward: 400 }, { id: 'normal', name: 'NORMAL', skill: 0.9, aggr: 0.45, reward: 700 }, { id: 'hard', name: 'HARD', skill: 0.97, aggr: 0.75, reward: 1100 }, { id: 'legend', name: 'LEGEND', skill: 1.02, aggr: 1.0, reward: 1600 }];
 const BGMS = [['race', 'Night Touge Rush'], ['title', 'Midnight Ridge'], ['menu', 'Garage Groove'], ['result', 'Victory Lane']];
-const GUIDE = { akane: '連続ヘアピンは進入で無理せず、立ち上がり重視でね。トンネル出口の左は思ったより深いよ。', shiranami: '高速コーナーが続くから、ブレーキよりアクセルワークでラインを整えるのがコツ!', ryusei: '雨の日は早めの減速が大事。水たまりの多いヘアピンは特に慎重に。' };
+const GUIDE = { akane: '連続ヘアピンは進入で無理せず、立ち上がり重視でね。トンネル出口の左は思ったより深いよ。', shiranami: '高速コーナーが続くから、ブレーキよりアクセルワークでラインを整えるのがコツ!', ryusei: '雨の日は早めの減速が大事。水たまりの多いヘアピンは特に慎重に。', kasumi: '長い直線のあとに5連続ヘアピン!ブレーキは早めに、側溝に気をつけてね。' };
 UI.register({
   id: 'course',
   build(n) {

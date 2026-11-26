@@ -22,7 +22,7 @@ export class Track {
       const kk = (seg.a * Math.PI / 180) / seg.l;
       for (let i = 0; i < n; i++) {
         k.push(kk); g.push(seg.g || 0);
-        flags.push({ tunnel: !!seg.tunnel, lamps: !!seg.lamps, sign: !!seg.sign && Math.abs(seg.a) > 60, signDir: Math.sign(seg.a), w: seg.w || def.width });
+        flags.push({ hp: seg.hp || 0, tunnel: !!seg.tunnel, lamps: !!seg.lamps, sign: !!seg.sign && Math.abs(seg.a) > 60, signDir: Math.sign(seg.a), w: seg.w || def.width });
       }
     }
     const N = k.length;

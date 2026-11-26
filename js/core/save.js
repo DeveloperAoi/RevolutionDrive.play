@@ -135,6 +135,7 @@ class SaveManager {
   // bring older save data up to the current structure without losing anything
   migrate(p) {
     p.tp ??= 30; p.settings ??= {}; p.inventory ??= {};
+    p.unlocked ??= { courses: [] }; for (const c of COURSES) if (!c.unlock && !p.unlocked.courses.includes(c.id)) p.unlocked.courses.push(c.id);
     // grant everything already equipped / bought before the IN-STORE existed
     for (const c of p.cars) {
       normalizeCar(c);

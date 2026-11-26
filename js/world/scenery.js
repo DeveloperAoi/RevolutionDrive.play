@@ -398,6 +398,129 @@ export function buildWorld(track, opts = {}) {
   floor.rotation.x = -Math.PI / 2; floor.position.set((track.bounds.minX + track.bounds.maxX) / 2, track.bounds.minY - 90, (track.bounds.minZ + track.bounds.maxZ) / 2);
   root.add(floor);
 
+  // ---- course-specific landmark detail (lake, summit lodge, utility poles, gutters, hairpin boards) ----
+  const rev = track.dir === 'rev';
+  const fS = (v) => rev ? track.length - v : v, fSide = (sd) => rev ? -sd : sd;
+  const idxAt = (v) => track.pointAt(v).i;
+  if (def.lake) {
+    const L = def.lake, side = fSide(L.side);
+    const a = Math.min(fS(L.from), fS(L.to)), b = Math.max(fS(L.from), fS(L.to));
+    let ymin = 1e9; const inner = [], outer = [];
+    for (let v = a; v <= b; v += 6) {
+      const i = idxAt(v), hw = track.w[i] / 2; ymin = Math.min(ymin, track.y[i]);
+      const di = side * (hw + 16), dO = side * (hw + 420);
+      inner.push([track.x[i] + track.nx[i] * di, track.z[i] + track.nz[i] * di]);
+      outer.push([track.x[i] + track.nx[i] * dO, track.z[i] + track.nz[i] * dO]);
+    }
+    const sh = new THREE.Shape(); sh.moveTo(inner[0][0], -inner[0][1]);
+    for (const p of inner) sh.lineTo(p[0], -p[1]);
+    for (const p of outer.reverse()) sh.lineTo(p[0], -p[1]);
+    const wg = new THREE.ShapeGeometry(sh, 4); wg.rotateX(-Math.PI / 2);
+    const water = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({ color: T === 'day' ? 0x2a5a70 : 0x0a1a26, roughness: 0.06, metalness: 0.65, transparent: true, opacity: 0.94 }));
+    water.position.y = ymin - 1.6; water.receiveShadow = true; water.name = 'lake'; root.add(water);
+    // shoreline stones + a small pier with lanterns
+    const stoneM = new THREE.MeshStandardMaterial({ color: 0x6b6a64, roughness: 1, flatShading: true });
+    const stoneG = new THREE.DodecahedronGeometry(1, 0); const stones = new THREE.InstancedMesh(stoneG, stoneM, inner.length * 2);
+    const sm = new THREE.Matrix4(); let sc0 = 0;
+    inner.reverse().forEach((p, k) => { for (const o of [0, 1]) { const r = 0.6 + ((k * 7 + o * 3) % 5) * 0.25; sm.compose(new THREE.Vector3(p[0] + o * 1.5, ymin - 1.6, p[1] + o), new THREE.Quaternion().setFromEuler(new THREE.Euler(k, o, k * 0.3)), new THREE.Vector3(r * 1.4, r * 0.7, r)); stones.setMatrixAt(sc0++, sm); } });
+    root.add(stones);
+    const mid = idxAt((a + b) / 2), hwm = track.w[mid] / 2;
+    const pier = new THREE.Group(); const wood = new THREE.MeshStandardMaterial({ color: 0x5a4330, roughness: 0.9 });
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(3, 0.25, 26), wood); deck.position.set(0, 0, 13); pier.add(deck);
+    for (let z = 2; z < 26; z += 4) for (const x of [-1.3, 1.3]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4, 6), wood); post.position.set(x, -1.8, z); pier.add(post); }
+    for (const z of [6, 16, 25]) { const ln = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.45, 0.3), new THREE.MeshBasicMaterial({ color: T === 'day' ? 0xddd2b0 : 0xffc070 })); ln.position.set(1.3, 0.9, z); pier.add(ln); if (T !== 'day') { const gs = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.glowTexture(), color: 0xffa040, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false })); gs.position.copy(ln.position); gs.scale.set(3, 3, 1); pier.add(gs); } }
+    pier.position.set(track.x[mid] + track.nx[mid] * side * (hwm + 14), ymin - 1.1, track.z[mid] + track.nz[mid] * side * (hwm + 14));
+    pier.rotation.y = Math.atan2(track.nx[mid] * side, track.nz[mid] * side); root.add(pier);
+  }
+  if (def.lodge) {
+    const side = fSide(def.lodge.side), i = idxAt(fS(def.lodge.s)), hw = track.w[i] / 2;
+    const g = new THREE.Group();
+    const base = new THREE.Vector3(track.x[i] + track.nx[i] * side * (hw + 16), track.y[i] - 0.05, track.z[i] + track.nz[i] * side * (hw + 16));
+    g.position.copy(base); g.rotation.y = Math.atan2(-track.nx[i] * side, -track.nz[i] * side); root.add(g);
+    const wallM = lampify(new THREE.MeshStandardMaterial({ color: 0xd8cfbf, roughness: 0.85 }), 0.8);
+    const roofM = new THREE.MeshStandardMaterial({ color: 0x3a3f46, roughness: 0.6, metalness: 0.3 });
+    const asphalt = lampify(new THREE.MeshStandardMaterial({ map: TX.roadTexture(wet), roughness: 0.9, color: 0x9a9a9a }), 1);
+    const lot = new THREE.Mesh(new THREE.BoxGeometry(34, 0.3, 26), asphalt); lot.position.set(0, -0.12, 0); g.add(lot);
+    const found = new THREE.Mesh(new THREE.BoxGeometry(34, 30, 26), new THREE.MeshStandardMaterial({ color: 0x55534e, roughness: 1, map: TX.rockTexture() })); found.position.set(0, -15.3, 0); g.add(found);
+    for (let k = -2; k <= 2; k++) { const ln = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 5), new THREE.MeshBasicMaterial({ color: 0xdddddd })); ln.rotation.x = -Math.PI / 2; ln.position.set(k * 3, 0.05, -4); g.add(ln); }
+    const house = (w, h, d, x, z, sign) => {
+      const hb = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallM); hb.position.set(x, h / 2, z); g.add(hb);
+      const rs = new THREE.Shape(); rs.moveTo(-w / 2 - 0.5, 0); rs.lineTo(0, h * 0.45); rs.lineTo(w / 2 + 0.5, 0); rs.closePath();
+      const roof = new THREE.Mesh(new THREE.ExtrudeGeometry(rs, { depth: d + 1, bevelEnabled: false }), roofM); roof.position.set(x, h, z - d / 2 - 0.5); g.add(roof);
+      const winM = new THREE.MeshStandardMaterial({ color: 0x223040, emissive: T === 'day' ? 0x000000 : 0xffc880, emissiveIntensity: T === 'day' ? 0 : 1.2, roughness: 0.1, metalness: 0.5 });
+      for (let k = 0; k < Math.floor(w / 2.6); k++) { const wn = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.1), winM); wn.position.set(x - w / 2 + 1.5 + k * 2.6, h * 0.55, z + d / 2 + 0.02); g.add(wn); }
+      const door = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.2), new THREE.MeshStandardMaterial({ color: 0x4a3626 })); door.position.set(x + w / 2 - 1.4, 1.1, z + d / 2 + 0.02); g.add(door);
+      if (sign) { const sg = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.7, 1.1), new THREE.MeshBasicMaterial({ map: TX.signTexture(sign, '', '#7a1a14') })); sg.position.set(x, h + 0.2, z + d / 2 + 0.3); g.add(sg); }
+    };
+    house(14, 4.2, 8, -6, 6, '湖畔レストハウス');
+    house(8, 3.4, 6, 9, 8, '');
+    // vending machines with glow (look like the roadside ones at every Japanese pass)
+    const vmCols = [0xd0202a, 0x1a4fbf, 0xf2f2f2];
+    vmCols.forEach((c, k) => {
+      const vm = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.85, 0.75), new THREE.MeshStandardMaterial({ color: c, roughness: 0.4, emissive: c, emissiveIntensity: T === 'day' ? 0.05 : 0.35 }));
+      vm.position.set(2 + k * 1.1, 0.93, 1.6); g.add(vm);
+      const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.9), new THREE.MeshBasicMaterial({ color: T === 'day' ? 0xcfe8ff : 0xf6fbff })); panel.position.set(2 + k * 1.1, 1.2, 1.98); g.add(panel);
+    });
+    if (T !== 'day') { const vg = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.glowTexture('rgba(230,245,255,0.9)', 'rgba(150,200,255,0)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false })); vg.position.set(3.1, 1.2, 2.6); vg.scale.set(6, 4, 1); g.add(vg); }
+    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  }
+  if (def.gutters) {
+    const gutM = lampify(new THREE.MeshStandardMaterial({ color: 0x8d8a83, roughness: 0.95, map: TX.gravelTexture() }), 0.9);
+    ribbon(i => {
+      if (isTunnel(i)) return null;
+      const side = sideOf(i), hw = track.w[i] / 2, b = track.bank[i], e = side * hw, y0 = e * b + crown(hw, hw) + 0.02;
+      const pts = [{ d: e + side * 0.12, h: y0, u: 0 }, { d: e + side * 0.16, h: y0 - 0.3, u: 0.3 }, { d: e + side * 0.62, h: y0 - 0.3, u: 0.7 }, { d: e + side * 0.66, h: y0 + 0.02, u: 1 }];
+      return side > 0 ? pts : pts.reverse();
+    }, 3, gutM);
+  }
+  if (def.utilityPoles) {
+    const poleM = new THREE.MeshStandardMaterial({ color: 0x8a8378, roughness: 0.9 });
+    const pG = new THREE.CylinderGeometry(0.13, 0.17, 10, 7); pG.translate(0, 5, 0);
+    const armG = new THREE.BoxGeometry(1.8, 0.1, 0.1); armG.translate(0, 9.2, 0);
+    const pts = []; const wires = [];
+    let prev = null;
+    for (let v = 8; v < track.length - 8; v += 34) {
+      const i = idxAt(v); if (isTunnel(i)) { prev = null; continue; }
+      const side = -sideOf(i); const hw = track.w[i] / 2 + 2.6;
+      const x = track.x[i] + track.nx[i] * side * hw, z = track.z[i] + track.nz[i] * side * hw, y = track.y[i] - 0.2;
+      // skip if it would stand on another part of the road (switchbacks)
+      const j = track.nearest(x, z, -1, y); if (Math.abs(track.s[j] - track.s[i]) > 30 && Math.hypot(track.x[j] - x, track.z[j] - z) < track.w[j] / 2 + 2) { prev = null; continue; }
+      const cur = { x, y, z, yaw: Math.atan2(track.tx[i], track.tz[i]), side };
+      pts.push(cur);
+      if (prev && prev.side === side && Math.hypot(prev.x - x, prev.z - z) < 48) {
+        for (const off of [-0.8, 0, 0.8]) {
+          const ox0 = Math.cos(prev.yaw) * off, oz0 = -Math.sin(prev.yaw) * off, ox1 = Math.cos(cur.yaw) * off, oz1 = -Math.sin(cur.yaw) * off;
+          let last = null;
+          for (let t = 0; t <= 1.0001; t += 0.125) {
+            const px = prev.x + ox0 + (x + ox1 - prev.x - ox0) * t, pz = prev.z + oz0 + (z + oz1 - prev.z - oz0) * t;
+            const py = prev.y + 9.3 + (y - prev.y) * t - Math.sin(Math.PI * t) * 0.9;
+            if (last) wires.push(last[0], last[1], last[2], px, py, pz); last = [px, py, pz];
+          }
+        }
+      }
+      prev = cur;
+    }
+    const pI = new THREE.InstancedMesh(pG, poleM, pts.length), aI = new THREE.InstancedMesh(armG, poleM, pts.length);
+    const mm = new THREE.Matrix4(), qq = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1);
+    pts.forEach((p, k) => { qq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.yaw); mm.compose(new THREE.Vector3(p.x, p.y, p.z), qq, one); pI.setMatrixAt(k, mm); aI.setMatrixAt(k, mm); });
+    pI.castShadow = aI.castShadow = true; root.add(pI, aI);
+    const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(wires, 3));
+    root.add(new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: 0x1a1a1a, transparent: true, opacity: 0.8 })));
+  }
+  if (def.hairpinNumbers) {
+    const seen = new Set();
+    for (let i = 0; i < track.n; i++) {
+      const hp = track.flags[i].hp; if (!hp || seen.has(hp)) continue; seen.add(hp);
+      const ia = track.idx(i - 14), sd = track.flags[i].signDir, side = sd > 0 ? 1 : -1; // inside of the corner
+      const hw = track.w[ia] / 2 + 2.4;
+      const n = rev ? 6 - hp : hp;
+      const bd = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.4), new THREE.MeshStandardMaterial({ map: TX.signTexture(`第${n}ヘアピン`, `HAIRPIN ${n}`, '#1a5fd0'), emissive: 0xffffff, emissiveMap: TX.signTexture(`第${n}ヘアピン`, `HAIRPIN ${n}`, '#1a5fd0'), emissiveIntensity: 0.15 }));
+      bd.position.set(track.x[ia] + track.nx[ia] * side * hw, track.y[ia] + 2.6, track.z[ia] + track.nz[ia] * side * hw);
+      bd.lookAt(track.x[track.idx(ia - 20)], track.y[ia] + 2.6, track.z[track.idx(ia - 20)]); root.add(bd);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.2, 5), new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.6 })); post.position.copy(bd.position).add(new THREE.Vector3(0, -1.5, 0)); root.add(post);
+    }
+  }
+
   // ---- lighting ---------------------------------------------------------
   const hemi = new THREE.HemisphereLight(time.sky[2], T === 'day' ? 0x3a3020 : 0x0a0a10, wet && T === 'day' ? time.amb * 0.8 : time.amb);
   const moonL = new THREE.DirectionalLight(T === 'dusk' ? 0xffb080 : T === 'day' ? 0xfff1dc : 0x8fa8ff, wet && T === 'day' ? time.moon * 0.35 : time.moon);
