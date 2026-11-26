@@ -47,7 +47,7 @@ export class Race {
       const p = this.track.pointAt(this.track.closed ? this.track.length - 1.5 - back : Math.max(1, 13 - back), lane);
       const veh = new Vehicle(g.spec);
       veh.reset(p.x, p.y, p.z, p.yaw);
-      const model = createCar(g.spec, g.dress, { headlights: g.ctrl === 'player' || (this.attract && k < 2) });
+      const model = createCar(g.spec, g.dress, { headlights: g.ctrl === 'player' || (this.attract && k < 2), flares: true });
       this.scene.add(model.root);
       const mu = MUFFLERS.find(m => m.id === g.dress?.muffler);
       const car = {

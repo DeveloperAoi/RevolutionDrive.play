@@ -169,6 +169,17 @@ export const CARS = [
     tire: { grip: 1.06, radius: 0.32, width: 235 }, brake: 1.12, steerLock: 0.60, downforce: 0.20, cda: 0.72,
     sound: { pitch: 0.9, rasp: 0.8, turbo: true },
   },
+  {
+    id: 'kurogane_seiran', disp: 2491, category: 'DRIFT', catJp: 'ドリフト', maker: 'KUROGANE', name: 'KUROGANE SEIRAN TV', jp: 'クロガネ セイラン TV', year: 1998, price: 34000,
+    desc: '2.5L直6ターボを積んだ4ドアFRスポーツセダン。長いホイールベースで大きな角度を安定して保てる。',
+    drive: 'FR', mass: 1470, wheelbase: 2.73, cgHeight: 0.52, weightFront: 0.55,
+    body: { len: 4.72, wid: 1.76, hgt: 1.40, style: 'sedan', shape: 'luxSedan', head: 'quad', tail: 'garnish' },
+    engine: { type: 'TURBO6', cyl: 6, hp: 280, torque: 378, idle: 750, redline: 6800, limiter: 7200,
+      curve: [[750, .45], [2400, .82], [3600, 1.0], [5400, .95], [7200, .72]], inertia: 1.1 },
+    gears: [3.47, 2.06, 1.39, 1.00, 0.84], final: 3.92, reverse: 3.39,
+    tire: { grip: 1.04, radius: 0.32, width: 225 }, brake: 1.06, steerLock: 0.66, downforce: 0.08, cda: 0.70,
+    sound: { pitch: 0.9, rasp: 0.55, turbo: true },
+  },
 ];
 
 export const carById = (id) => CARS.find(c => c.id === id) || CARS[0];

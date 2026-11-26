@@ -196,3 +196,13 @@ export function plateTexture(text = 'RD 86-01') {
   g.font = 'bold 54px "Arial Black", sans-serif'; g.fillText(text.slice(0, 8), 128, 86);
   return tex(c, false, 2);
 }
+
+export function meshTexture() {
+  const key = 'mesh'; if (cache[key]) return cache[key];
+  const [c, g] = canvas(64, 64);
+  g.fillStyle = '#050505'; g.fillRect(0, 0, 64, 64);
+  g.strokeStyle = '#3a3a3a'; g.lineWidth = 2;
+  for (let i = -64; i < 128; i += 8) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 64, 64); g.stroke(); g.beginPath(); g.moveTo(i + 64, 0); g.lineTo(i, 64); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(8, 1); t.colorSpace = THREE.SRGBColorSpace;
+  return (cache[key] = t);
+}
