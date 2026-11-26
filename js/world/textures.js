@@ -72,7 +72,7 @@ export function gravelTexture() {
 export function terrainTexture(kind = 'forest') {
   const key = 'terrain' + kind; if (cache[key]) return cache[key];
   const [c, g] = canvas(512, 512); const r = rand(kind === 'forest' ? 5 : 9);
-  const base = kind === 'forest' ? [38, 52, 30] : kind === 'rock' ? [70, 66, 60] : [74, 80, 46];
+  const base = kind === 'forest' ? [38, 52, 30] : kind === 'autumn' ? [92, 70, 38] : kind === 'rock' ? [70, 66, 60] : [74, 80, 46];
   g.fillStyle = `rgb(${base})`; g.fillRect(0, 0, 512, 512);
   for (let i = 0; i < 9000; i++) {
     const k = r();

@@ -326,6 +326,7 @@ export function buildWorld(track, opts = {}) {
   crowns.forEach((t, k) => {
     m4.compose(v3.set(t[0], t[1], t[2]), q.setFromAxisAngle(up, t[4] * 6), sc.set(t[3], t[3] * (0.9 + t[4] * 0.4), t[3])); crownI.setMatrixAt(k, m4);
     lightAt(t[0], t[1] + 4, t[2], col); col.r = 0.55 + col.r * 0.8 + t[4] * 0.3; col.g = 0.55 + col.g * 0.8 + t[4] * 0.25; col.b = 0.5 + col.b * 0.6;
+    if (def.terrain === 'autumn') { const A = [[2.6, 0.55, 0.25], [2.8, 1.3, 0.3], [2.4, 1.9, 0.35], [1.0, 1.6, 0.6], [2.2, 0.35, 0.2]][Math.floor(t[4] * 5)]; col.r *= A[0] * 0.8; col.g *= A[1] * 0.8; col.b *= A[2]; }
     crownI.setColorAt(k, col);
   });
   sc.set(1, 1, 1);
@@ -506,6 +507,17 @@ export function buildWorld(track, opts = {}) {
     pI.castShadow = aI.castShadow = true; root.add(pI, aI);
     const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(wires, 3));
     root.add(new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: 0x1a1a1a, transparent: true, opacity: 0.8 })));
+  }
+  if (def.barrier) {
+    // closed-road barricade at the start ("進入禁止"), like the old pass roads
+    const p0 = track.pointAt(rev ? track.length - 30 : 30), i0 = p0.i, side = 1, hw = track.w[i0] / 2 + 1.0;
+    const g = new THREE.Group(); g.position.set(track.x[i0] + track.nx[i0] * side * hw, track.y[i0], track.z[i0] + track.nz[i0] * side * hw); g.rotation.y = p0.yaw + Math.PI / 2; root.add(g);
+    const st = new THREE.MeshStandardMaterial({ color: 0xd8b020, metalness: 0.4, roughness: 0.5 });
+    for (const x of [-1.2, 1.2]) for (const z of [-0.35, 0.35]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.3, 0.06), st); leg.position.set(x, 0.62, z); leg.rotation.x = z > 0 ? -0.25 : 0.25; g.add(leg); }
+    const bt = TX.signTexture('進入禁止', 'ROAD CLOSED', '#b01010');
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.75), new THREE.MeshStandardMaterial({ map: bt, side: THREE.DoubleSide, roughness: 0.6 })); board.position.y = 1.05; g.add(board);
+    const stripe = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.18), new THREE.MeshBasicMaterial({ map: TX.chevronTexture(1), side: THREE.DoubleSide })); stripe.position.y = 0.6; g.add(stripe);
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   }
   if (def.hairpinNumbers) {
     const seen = new Set();
