@@ -3,7 +3,7 @@ import { Save } from './core/save.js';
 import { Audio } from './audio/audio.js';
 import { carById, buildSpec } from './data/cars.js';
 
-export const VERSION = 'Ver.1.20.00';
+export const VERSION = 'Ver.1.30.00';
 export const SITE_URL = 'https://github.com/DeveloperAoi/RevolutionDrive.play';
 
 export const App = {
