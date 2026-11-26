@@ -14,5 +14,8 @@ export const App = {
   applySettings() { const s = this.settings; Audio.setVolume('bgm', s.bgm); Audio.setVolume('sfx', s.sfx); Audio.setVolume('guide', s.guideSe ?? 7); if (this.gfx && this.gfx.setQuality && this._gq !== s.gfx) { this._gq = s.gfx; this.gfx.setQuality(s.gfx || 'high'); } },
   specOf(gc) { return buildSpec(carById(gc.carId), gc.tune, gc.setup, gc.dress); },
   // race session request built by the select screens
+  // hub screen to return to after a sub screen (shop -> tuning -> back to shop)
+  hubReturn: null,
+  takeReturn(def) { const t = this.hubReturn; this.hubReturn = null; return t || def; },
   pending: { mode: 'trial', courseId: 'akane', dir: 'fwd', weather: null },
 };

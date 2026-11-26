@@ -147,7 +147,7 @@ UI.register({
     this.focus = new Focus($$('.pf-btns .btn', this.el), { axis: 'h', onSelect: (i, b) => this.run(b.dataset.a) });
   },
   async run(a) {
-    if (a === 'back') { Audio.ui('back'); return UI.go('mode'); }
+    if (a === 'back') { Audio.ui('back'); return UI.go(App.takeReturn('mode')); }
     if (a === 'rename') { Audio.ui('ok'); return UI.go('name', { edit: 'driver' }); }
     if (a === 'sync') { await Save.persistNow('manual'); toast(Save.status === 'synced' ? 'クラウドと同期しました' : '同期できませんでした。ローカルに保持し、自動で再試行します'); return this.enter(); }
     if (a === 'account') {
@@ -173,5 +173,5 @@ UI.register({
       setTimeout(() => { const i = $('#pw-confirm'); if (i) { i.focus(); i.oninput = () => this._pw = i.value; } }, 60);
     });
   },
-  onAction(a) { if (a === 'back') { Audio.ui('back'); return UI.go('mode'); } this.focus.action(a); },
+  onAction(a) { if (a === 'back') { Audio.ui('back'); return UI.go(App.takeReturn('mode')); } this.focus.action(a); },
 });

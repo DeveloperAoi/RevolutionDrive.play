@@ -9,6 +9,7 @@ import './ui/screens-start.js';
 import './ui/screens-menu.js';
 import './ui/screens-garage.js';
 import './ui/screens-race.js';
+import './ui/screens-hub.js';
 import { preloadPacks } from './data/glbcars.js';
 
 function boot() {

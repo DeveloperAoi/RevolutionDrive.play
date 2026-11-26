@@ -423,7 +423,7 @@ UI.register({
     if (this.edit) return UI.go('profile');
     if (this.t === 'icon') { $('.icon-ok', this.el).style.display = 'none'; return this.stage('team'); }
     if (this.t === 'team') return this.stage('driver');
-    UI.go(this.isNew ? 'entry' : 'mode');
+    UI.go(this.isNew ? 'entry' : 'start');
   },
   onAction(a) {
     if (a === 'back') return this.back();
@@ -448,6 +448,6 @@ UI.register({
     await sleep(2200);
     if (UI.current !== this) return;
     if (!p.cars.length) UI.go('carselect', { mode: 'register' });
-    else UI.go('mode');
+    else UI.go('start');
   },
 });

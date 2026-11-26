@@ -142,9 +142,7 @@ UI.register({
   async onAction(a) {
     if (a === 'back') {
       stopTimer();
-      if (await dialog.confirm('タイトルに戻る', 'タイトル画面に戻りますか?<br>(データは自動保存されています)', '戻る', 'キャンセル')) { await Save.persistNow('exit'); UI.go('title'); }
-      else bigTimer($('.m-tm', this.el), 60, () => this.pick(this.focus.i));
-      return;
+      Audio.ui('back'); return UI.go('start');
     }
     this.focus.action(a);
   },
@@ -224,10 +222,10 @@ UI.register({
     await Save.persistNow('car-add');
     Audio.ui('coin'); toast(`${c.name} を登録しました`);
     if (thenDress || this.mode === 'register') UI.go('dressup', { uid: gc.uid, flow: this.mode === 'register' ? 'register' : 'garage' });
-    else UI.go('garage');
+    else UI.go(App.takeReturn('garage'));
   },
   onAction(a) {
-    if (a === 'back') { if (this.zone === 'menu') return this.closeMenu(); if (this.mode === 'register') { Audio.ui('error'); toast('最初の1台を登録してください'); return; } Audio.ui('back'); return UI.go('garage'); }
+    if (a === 'back') { if (this.zone === 'menu') return this.closeMenu(); if (this.mode === 'register') { Audio.ui('error'); toast('最初の1台を登録してください'); return; } Audio.ui('back'); return UI.go(App.takeReturn('garage')); }
     if (this.zone === 'list' && (a === 'up' || a === 'down')) { this.mi = (this.mi + (a === 'up' ? -1 : 1) + this.makers.length) % this.makers.length; Audio.ui('move'); return this.renderMaker(); }
     (this.zone === 'menu' ? this.mf : this.focus).action(a);
   },
@@ -258,7 +256,7 @@ UI.register({
     const tiles = $$('.scard', m);
     this.mf = new Focus(tiles, { axis: 'h', index: params.menu || 0, onSelect: (k, t) => this.run(t.dataset.a) });
     const ap = this.mf.apply.bind(this.mf); this.mf.apply = () => { ap(); tiles.forEach((t, k) => t.classList.toggle('sel', k === this.mf.i)); }; this.mf.apply();
-    startClock($('.g-tm', this.el), 180, async () => { await Save.persistNow('timeout'); toast('時間切れ — データを保存しました'); UI.go('mode'); });
+    startClock($('.g-tm', this.el), 180, async () => { await Save.persistNow('timeout'); toast('時間切れ — データを保存しました'); UI.go(App.takeReturn('shopcust')); });
   },
   leave() { stopClock(); },
   render() {
@@ -283,7 +281,7 @@ UI.register({
   },
   async run(a) {
     const p = Save.profile; const c = p.cars[this.ci];
-    if (a === 'back') { Audio.ui('back'); await Save.persistNow('garage'); return UI.go('mode'); }
+    if (a === 'back') { Audio.ui('back'); await Save.persistNow('garage'); return UI.go(App.takeReturn('shopcust')); }
     if (a === 'add') { if (!Save.canAddCar()) { Audio.ui('error'); return dialog.alert('CAR ADD', `登録可能な車両は最大${MAX_GARAGE}台です`); } Audio.ui('ok'); return UI.go('carselect', { mode: 'add' }); }
     if (!c) return;
     if (a === 'use') { Save.setActive(c.uid); Audio.ui('ok'); toast(`${c.name} を使用車両に登録しました`); return this.render(); }
@@ -433,8 +431,9 @@ UI.register({
     if (this.params.flow === 'register') {
       App.showroom.setPreset('free');
       await dialog.show({ title: '使用車両登録完了', text: `<b style="font-size:44px">${esc(this.gc.name)}</b><br>ガレージに登録されました!<br>さあ、峠へ向かおう。`, buttons: [{ label: 'メインメニューへ', value: true, cls: 'primary' }] });
-      return UI.go('mode');
+      return UI.go('start');
     }
+    if (App.hubReturn) return UI.go(App.takeReturn());
     UI.go('garage', { menu: 1 });
   },
   onAction(a) {
@@ -571,6 +570,7 @@ UI.register({
     stopClock(); this.revert(); await Save.persistNow('wheel');
     if (timeout) toast('時間切れ — 装着中のホイールを保存しました');
     if (this.params.back === 'dressup') return UI.go('dressup', { uid: this.gc.uid, flow: this.params.flow, cat: DRESS_CATS.findIndex(c => c.k === 'wheel') });
+    if (App.hubReturn) return UI.go(App.takeReturn());
     UI.go('garage', { menu: 2 });
   },
   onAction(a) {
@@ -645,7 +645,7 @@ UI.register({
     this.gc.meter = { ...this.draft }; Save.touch('meter'); Audio.ui('ok'); toast('メーター設定を保存しました(レース中のHUDに反映されます)');
     this.renderStrip();
   },
-  async finish(timeout) { stopClock(); this.draft = { ...this.gc.meter }; await Save.persistNow('meter'); if (timeout) toast('時間切れ — 設定を保存しました'); UI.go('garage', { menu: 3 }); },
+  async finish(timeout) { stopClock(); this.draft = { ...this.gc.meter }; await Save.persistNow('meter'); if (timeout) toast('時間切れ — 設定を保存しました'); if (App.hubReturn) return UI.go(App.takeReturn()); UI.go('garage', { menu: 3 }); },
   onAction(a) {
     if (a === 'back') { Audio.ui('back'); return this.finish(false); }
     if (a === 'up' || a === 'down') { this.draft = { ...this.gc.meter }; this.ci = (this.ci + (a === 'up' ? -1 : 1) + METER_CATS.length) % METER_CATS.length; Audio.ui('move'); this.renderCats(); return this.renderStrip(); }
@@ -721,7 +721,7 @@ UI.register({
     await Save.persistNow('tune'); Audio.ui('coin'); toast(`${p.jp} Lv.${lv + 1}!`);
     this.render(i);
   },
-  async finish(timeout) { stopClock(); await Save.persistNow('tune'); if (timeout) toast('時間切れ — 保存しました'); UI.go('garage', { menu: 4 }); },
+  async finish(timeout) { stopClock(); await Save.persistNow('tune'); if (timeout) toast('時間切れ — 保存しました'); if (App.hubReturn) return UI.go(App.takeReturn()); UI.go('garage', { menu: 4 }); },
   onAction(a) {
     if (a === 'back') { Audio.ui('back'); return this.finish(false); }
     if (a === 'up' || a === 'down') { this.ci = (this.ci + (a === 'up' ? -1 : 1) + TUNE_CATS.length) % TUNE_CATS.length; Audio.ui('move'); return this.render(0); }
@@ -898,7 +898,7 @@ UI.register({
     const i = this.sel.i; this.render(); this.sel.i = i; this.mark(); this.preview();
   },
   onAction(a) {
-    if (a === 'back') { Audio.ui('back'); return UI.go('garage', { menu: 5 }); }
+    if (a === 'back') { Audio.ui('back'); if (App.hubReturn) return UI.go(App.takeReturn()); return UI.go('garage', { menu: 5 }); }
     if (a === 'up' || a === 'down') { this.ci = (this.ci + (a === 'up' ? -1 : 1) + STORE_CATS.length) % STORE_CATS.length; Audio.ui('move'); this.layout(this.ci); return this.render(); }
     if (a === 'left' || a === 'right') { const n = this.opts.length; this.sel.i = (this.sel.i + (a === 'left' ? -1 : 1) + n) % n; Audio.ui('move'); this.mark(); return this.preview(); }
     if (a === 'ok') return this.buy();
