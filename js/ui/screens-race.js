@@ -8,17 +8,25 @@ import { Race } from '../game/race.js';
 import { COURSES, courseById } from '../data/courses.js';
 import { CARS, buildSpec } from '../data/cars.js';
 import { fmt, fmtDelta } from '../game/hud.js';
+const RIVAL_NAMES = [['ハヤト', 'MIDNIGHT WOLVES', 2], ['リン', 'SKYLINE ANGELS', 4], ['ゴウ', 'IRON RIDGE', 3], ['ミサキ', 'NIGHT KITE', 5], ['ケンジ', 'RED SUNSET', 7], ['ユウ', 'BLUE FLAME', 1]];
 
 UI.register({
   id: 'race',
   build(n) {
     n.innerHTML = `
-      <div class="hud-top"><div class="lbl">TIME</div><div class="time">0'00"000</div><div class="delta"></div></div>
-      <div class="hud-left"><div class="hud-panel"><small>BEST</small><b class="h-best">--</b></div><div class="hud-panel"><small>SECTIONS</small><div class="secs"></div></div></div>
-      <div class="hud-pos"><b class="h-pos">1</b><span class="h-suf">st</span><div class="gap"></div></div>
-      <div class="hud-lap"></div>
-      <canvas id="minimap"></canvas><canvas id="tacho"></canvas>
-      <div class="hud-drift"></div><div class="hud-sec"></div><div class="hud-warn">WRONG WAY  — R でコース復帰</div><div class="hud-msg"></div>
+      <div class="rh">
+        <div class="rh-band"></div><div class="rh-player"></div>
+        <div class="rh-time"></div><div class="rh-rivals"></div>
+        <div class="rh-sign"></div><div class="rh-secpop"></div>
+        <div class="rh-tags"></div><div class="rh-onos"></div>
+        <div class="rh-mm"><div class="rem"></div><canvas></canvas><div class="cn"></div></div>
+        <div class="rh-gearbox"><div class="rh-gear"></div><div class="rh-cond"></div></div>
+        <div class="rh-meter"><canvas></canvas></div>
+        <div class="rh-in"><div class="th"><i></i><span>A</span></div><div class="br"><i></i><span>B</span></div><div class="sw"><i></i></div></div>
+        <div class="rh-toggles"><div class="rh-tg rh-tg-ghost"><span class="k">G</span>ゴースト<b>ON</b></div><div class="rh-tg rh-tg-line"><span class="k">L</span>ラインガイド<b>OFF</b></div></div>
+        <div class="rh-warn">WRONG WAY — R でコース復帰</div>
+      </div>
+      <div class="hud-msg"></div>
       <div class="touch">
         <div class="tbtn l" data-t="left">◀</div><div class="tbtn r" data-t="right">▶</div>
         <div class="tbtn acc" data-t="acc">ACCEL</div><div class="tbtn brk" data-t="brk">BRAKE</div><div class="tbtn hb" data-t="hb">S.BRAKE</div>
@@ -45,20 +53,19 @@ UI.register({
       const rc = pool[Math.floor(Math.random() * pool.length)];
       const lvl = params.cpu || { skill: 0.9, aggr: 0.45 };
       const t = Math.round((lvl.skill - 0.8) * 15);
-      rivals.push({ spec: buildSpec(rc, { engine: t, tires: t, weight: t, suspension: t }), dress: { paint: ['red', 'black', 'blue', 'silver'][Math.floor(Math.random() * 4)], wheel: 'gold6', spoiler: 'mid', aero: 'street', decal: 'number', number: '99' }, skill: lvl.skill, aggr: lvl.aggr, name: rc.name });
+      const nm = RIVAL_NAMES[Math.floor(Math.random() * RIVAL_NAMES.length)];
+      rivals.push({ spec: buildSpec(rc, { engine: t, tires: t, weight: t, suspension: t }), dress: { paint: ['red', 'black', 'blue', 'silver'][Math.floor(Math.random() * 4)], wheel: 'gold6', spoiler: 'mid', aero: 'street', decal: 'number', number: '99' }, skill: lvl.skill, aggr: lvl.aggr, name: nm[0], team: nm[1], carName: rc.name, rp: Math.round(Save.profile.rp * 0.8 + lvl.skill * 600 - 400), icon: nm[2] });
     }
-    const hud = {
-      root: this.el, time: $('.time', this.el), delta: $('.delta', this.el), best: $('.h-best', this.el), secs: $('.secs', this.el),
-      pos: $('.hud-pos', this.el), posNum: $('.h-pos', this.el), posSuf: $('.h-suf', this.el), gap: $('.gap', this.el), lap: $('.hud-lap', this.el),
-      tacho: $('#tacho', this.el), minimap: $('#minimap', this.el), drift: $('.hud-drift', this.el), sec: $('.hud-sec', this.el), warn: $('.hud-warn', this.el), msg: $('.hud-msg', this.el),
-    };
-    hud.delta.textContent = ''; hud.warn.style.display = 'none';
+    const hud = { root: $('.rh', this.el), msg: $('.hud-msg', this.el) };
+
     const start = async () => {
       const ghost = params.mode === 'trial' ? await Save.loadGhost(params.courseId, params.dir) : null;
       this.race = new Race(App.gfx, {
         mode: params.mode, courseId: params.courseId, dir: params.dir, weather: params.weather,
         player: { spec, dress: gc.dress, name: Save.profile.driverName }, rivals, ghost, best: rec, hud,
+        playerInfo: { name: Save.profile.driverName, team: Save.profile.teamName, rp: Save.profile.rp, icon: Save.profile.icon, carName: gc.name },
         settings: App.settings, meter: gc.meter, onFinish: (res) => this.finish(res),
+        onSetting: (k, v) => { App.settings[k] = v; Save.touch('settings'); },
       });
       App.race = this.race;
       const race = this.race; App.gfx.setView({ scene: race.scene, camera: race.camera, update: (dt) => { if (this.race === race) race.update(dt); } });
@@ -67,6 +74,7 @@ UI.register({
     Audio.stopMusic(0.3);
     const touchOn = App.settings.touch === 'on' || (App.settings.touch === 'auto' && App.isTouch);
     $('.touch', this.el).classList.toggle('on', touchOn);
+    $('.rh', this.el).classList.toggle('touchmode', touchOn);
     $('.pause-menu', this.el).classList.remove('on');
     const btns = $$('.pause-menu .btn', this.el);
     this.pf = new Focus(btns, { axis: 'v', onSelect: (i) => this.pauseAct(i) });
@@ -123,7 +131,8 @@ UI.register({
     const unlocked = [];
     for (const c of COURSES) if (c.unlock && !p.unlocked.courses.includes(c.id) && p.rp >= c.unlock.rp) { p.unlocked.courses.push(c.id); unlocked.push(c.jp); }
     await Save.persistNow('race-end');
-    UI.go('result', { res, prev, newRecord, credits, rp, tp, rankBefore, rankAfter: rankOf(p.rp), unlocked, event, params: this.params });
+    res.cars = this.race ? this.race.cars.length : 2;
+    UI.go('result', { res, prev, newRecord, ghostSaved: newRecord && res.mode === 'trial', credits, rp, tp, rankBefore, rankAfter: rankOf(p.rp), unlocked, event, params: this.params });
   },
   onAction(a) {
     if (!this.race) return;
@@ -142,13 +151,13 @@ UI.register({
     $('.r-title', this.el).textContent = res.mode === 'battle' ? 'BATTLE RESULT' : d.event ? 'EVENT RESULT' : 'TIME ATTACK RESULT';
     $('.r-course', this.el).textContent = `${c.jp} ${c.dirs[res.dir][1]}`;
     const head = res.mode === 'battle'
-      ? `<div class="t">${res.won ? 'YOU WIN' : 'YOU LOSE'}</div><div class="big" style="color:${res.won ? '#ffd400' : '#ff4a4a'}">${res.won ? 'WIN!!' : 'LOSE'}</div>${res.time != null ? `<div style="font-size:44px;font-style:italic">${fmt(res.time)}</div>` : '<div style="font-size:34px;font-style:italic;color:#aaa">ライバルに大差をつけられた…</div>'}`
+      ? `<div class="t">${res.won ? 'YOU WIN' : 'YOU LOSE'} — ${res.position}位 / ${res.cars || 2}台</div><div class="big" style="color:${res.won ? '#ffd400' : '#ff4a4a'}">${res.won ? 'WIN!!' : 'LOSE'}</div>${res.time != null ? `<div style="font-size:44px;font-style:italic">${fmt(res.time)}</div>` : '<div style="font-size:34px;font-style:italic;color:#aaa">ライバルに大差をつけられた…</div>'}${res.advantage != null ? `<div style="font-size:34px;font-style:italic">FINAL ADVANTAGE <b style="color:${res.advantage >= 0 ? '#36c3ff' : '#ff5050'}">${res.advantage >= 0 ? '+' : ''}${res.advantage.toFixed(1)}m</b></div>` : ''}`
       : `<div class="t">TOTAL TIME</div><div class="big">${fmt(res.time)}</div>${newRecord ? '<div class="nr">NEW RECORD!!</div>' : prev ? `<div style="font-size:40px;font-style:italic;color:#ff6a6a">${fmtDelta(res.time - prev.best)}</div>` : ''}`;
     $('.res-head', this.el).innerHTML = head;
     const secs = res.sections.map((t, i) => { const b = prev?.sections?.[i]; return `<div class="r"><span>SECTION ${i + 1}</span><span>${fmt(t)} ${b != null ? `<span class="${t < b ? 'g' : ''}" style="color:${t < b ? '#3dff8a' : '#ff6a6a'};font-size:22px">${fmtDelta(t - b)}</span>` : ''}</span></div>`; }).join('');
     const ev = d.event ? `<div class="r"><span>EVENT</span><span class="${d.event.cleared ? 'g' : ''}">${d.event.cleared ? 'CLEAR!' : 'FAILED'} (目標 ${fmt(d.params.event.target)})</span></div>` : '';
     $('.res-table', this.el).innerHTML = `
-      <div class="res-box"><h3>SECTION TIMES</h3>${secs || '<div class="r"><span>—</span></div>'}<div class="r"><span>PERSONAL BEST</span><span class="y">${fmt(Save.profile.records[`${res.courseId}:${res.dir}`]?.best)}</span></div></div>
+      <div class="res-box"><h3>SECTION TIMES</h3>${secs || '<div class="r"><span>—</span></div>'}<div class="r"><span>PERSONAL BEST</span><span class="y">${fmt(Save.profile.records[`${res.courseId}:${res.dir}`]?.best)}</span></div>${prev ? `<div class="r"><span>前回ベストとの差</span><span style="color:${res.time != null && res.time < prev.best ? '#3dff8a' : '#ff6a6a'}">${res.time != null ? fmtDelta(res.time - prev.best) : '—'}</span></div>` : ''}${d.ghostSaved ? '<div class="r"><span>GHOST</span><span class="g">ゴーストを保存しました</span></div>' : ''}<div class="r"><span>CONDITION</span><span>${Math.round(res.condition ?? 100)}%</span></div></div>
       <div class="res-box"><h3>REWARDS</h3>${ev}<div class="r"><span>CREDITS</span><span class="y">+¥${d.credits.toLocaleString()}</span></div><div class="r"><span>RANK POINT</span><span class="g">+${d.rp} RP</span></div><div class="r"><span>TUNE POINT</span><span class="g">+${d.tp} pts.</span></div>
         <div class="r"><span>RANK</span><span>${d.rankBefore.label} → <b style="color:#ffd400">${d.rankAfter.label}</b></span></div><div class="xpbar"><i style="width:0"></i></div>
         ${d.unlocked.length ? `<div class="r"><span>UNLOCK</span><span class="g">${d.unlocked.join(', ')} 解放!</span></div>` : ''}

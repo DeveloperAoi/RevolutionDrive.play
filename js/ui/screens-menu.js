@@ -59,8 +59,8 @@ UI.register({
 // ───────────────────────── SETTINGS ─────────────────────────
 UI.register({
   id: 'settings',
-  build(n) { n.innerHTML = `<div class="bg-metal"></div>${head('SETTINGS', '設定', false)}<div class="opt-row s-opts" style="left:420px;right:420px;width:auto;top:200px"></div>
-    <div style="position:absolute;left:420px;right:420px;bottom:110px;font-family:var(--jp);font-weight:900;font-size:22px;line-height:36px;color:#bbb;background:rgba(0,0,0,.5);padding:16px 24px;border-left:4px solid var(--orange)">
+  build(n) { n.innerHTML = `<div class="bg-metal"></div>${head('SETTINGS', '設定', false)}<div class="opt-row s-opts" style="left:120px;right:auto;width:900px;top:140px;gap:6px"></div>
+    <div style="position:absolute;left:1080px;right:80px;top:160px;font-family:var(--jp);font-weight:900;font-size:22px;line-height:36px;color:#bbb;background:rgba(0,0,0,.5);padding:16px 24px;border-left:4px solid var(--orange)">
     操作:←→ ステアリング / ↑ アクセル / ↓ ブレーキ・バック / SPACE サイドブレーキ / E・Q シフトアップ・ダウン(MT) / C カメラ切替 / R コース復帰 / ESC ポーズ<br>ゲームパッド:左スティック ステア / RT アクセル / LT ブレーキ / A サイドブレーキ / RB・LB シフト</div>
     ${footer([['↑↓', '項目'], ['←→', '変更'], ['ESC', '戻る']])}`; },
   enter(params = {}) {
@@ -75,10 +75,15 @@ UI.register({
       ['CAMERA', ['CHASE', 'FAR', 'BUMPER'][s.camera], 'camera'],
       ['TOUCH CONTROLS', { auto: 'AUTO', on: 'ON', off: 'OFF' }[s.touch], 'touch'],
       ['CUSTOMIZE TIMER', s.custTimer ? '3:00 制限あり' : '制限なし', 'custTimer'],
+      ['PERSONAL GHOST', s.ghost === false ? 'OFF' : 'ON', 'ghost'],
+      ['GHOST OPACITY', 'slider', 'ghostOp10'],
+      ['GHOST COLOR', { '#7af0ff': 'CYAN', '#ffffff': 'WHITE', '#ffd400': 'YELLOW', '#ff5ad0': 'PINK', '#5aff7a': 'GREEN' }[s.ghostColor || '#7af0ff'], 'ghostColor'],
+      ['LINE GUIDE', s.lineGuide ? 'ON' : 'OFF', 'lineGuide'],
+      ['CAMERA SHAKE', 'slider', 'camShake'],
     ];
   },
   render() {
-    const s = App.settings;
+    const s = App.settings; s.ghostOp10 ??= 4; s.camShake ??= 6;
     $('.s-opts', this.el).innerHTML = this.rows().map(([l, v, k]) => `<div class="opt"><label>${l}</label><span class="arr">◀</span>${v === 'slider' ? `<span class="slider">${Array.from({ length: 10 }, (_, i) => `<i class="${i < s[k] ? 'on' : ''}"></i>`).join('')}</span>` : `<span class="val">${v}</span>`}<span class="arr">▶</span></div>`).join('') + `<div class="opt" style="justify-content:center"><span class="val">◀ 戻る</span></div>`;
     $$('.s-opts .opt', this.el).forEach((o, k) => { o.classList.toggle('focus', k === this.i); o.onclick = (e) => { this.i = k; if (k === this.rows().length) return this.exit(); this.change(e.offsetX < o.clientWidth / 2 ? -1 : 1); }; });
   },
@@ -87,6 +92,11 @@ UI.register({
     if (k === 'bgm' || k === 'sfx' || k === 'assist') s[k] = Math.max(0, Math.min(10, s[k] + d));
     if (k === 'autoGear') s.autoGear = !s.autoGear;
     if (k === 'custTimer') s.custTimer = !s.custTimer;
+    if (k === 'ghost') s.ghost = s.ghost === false;
+    if (k === 'lineGuide') s.lineGuide = !s.lineGuide;
+    if (k === 'ghostOp10') { s.ghostOp10 = Math.max(1, Math.min(9, (s.ghostOp10 ?? 4) + d)); s.ghostOpacity = s.ghostOp10 / 10; }
+    if (k === 'camShake') s.camShake = Math.max(0, Math.min(10, (s.camShake ?? 6) + d));
+    if (k === 'ghostColor') { const o = ['#7af0ff', '#ffffff', '#ffd400', '#ff5ad0', '#5aff7a']; s.ghostColor = o[(o.indexOf(s.ghostColor || '#7af0ff') + d + o.length) % o.length]; }
     if (k === 'camera') s.camera = (s.camera + d + 3) % 3;
     if (k === 'touch') { const o = ['auto', 'on', 'off']; s.touch = o[(o.indexOf(s.touch) + d + 3) % 3]; }
     App.applySettings(); Audio.ui('move'); if (Save.profile) Save.touch('settings'); this.render();

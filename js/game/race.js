@@ -9,7 +9,8 @@ import { Audio } from '../audio/audio.js';
 import { Input } from '../core/input.js';
 import { courseById } from '../data/courses.js';
 import { MUFFLERS } from '../data/cars.js';
-import { Tacho, MiniMap, fmt, fmtDelta } from './hud.js';
+import { fmt, fmtDelta } from './hud.js';
+import { RaceHUD } from './racehud.js';
 
 const DT = 1 / 120;
 const CAR_HALF_W = 0.85;
@@ -65,8 +66,16 @@ export class Race {
     if (cfg.ghost && cfg.ghost.frames && cfg.ghost.frames.length > 10 && cfg.ghost.spec) {
       const gm = createCar(cfg.ghost.spec, cfg.ghost.dress || {}, {});
       gm.setGhost(true); this.scene.add(gm.root);
+      const S = cfg.settings || {};
+      const tint = new THREE.Color(S.ghostColor || '#7af0ff'), op = S.ghostOpacity ?? 0.35;
+      gm.root.traverse(o => { if (o.material && !o.isSprite) { o.material.opacity = op; if (o.material.emissive) { o.material.emissive = tint; o.material.emissiveIntensity = 0.35; } } });
       this.ghost = { data: cfg.ghost, model: gm };
     }
+    this.ghostOn = cfg.settings?.ghost ?? true;
+    this.lineOn = cfg.settings?.lineGuide ?? false;
+    this.camShake = (cfg.settings?.camShake ?? 6) / 10;
+    this.buildLineGuide();
+    for (const c of this.cars) c.condition = 100;
 
     // camera rig state
     this.camPos = new THREE.Vector3(); this.camLook = new THREE.Vector3(); this.camYaw = this.focus.veh.yaw;
@@ -75,15 +84,38 @@ export class Race {
     if (this.hud) this.initHud();
   }
 
-  initHud() {
-    const h = this.hud;
-    this.tacho = new Tacho(h.tacho, this.cfg.meter);
-    this.mini = new MiniMap(h.minimap, this.track);
-    h.root.classList.toggle('battle', this.cfg.mode === 'battle');
-    h.pos.style.display = this.cfg.mode === 'battle' ? '' : 'none';
-    h.lap.style.display = this.laps > 1 ? '' : 'none';
-    h.best.textContent = fmt(this.cfg.best?.best);
-    this.renderSecs();
+  initHud() { this.ui = new RaceHUD(this.hud.root, this); }
+
+  toggleGhost() { if (!this.ghost) { Audio.ui('error'); return; } this.ghostOn = !this.ghostOn; Audio.ui('move'); this.cfg.onSetting && this.cfg.onSetting('ghost', this.ghostOn); this.ui && this.ui.updToggles(); }
+  toggleLine() { this.lineOn = !this.lineOn; if (this.lineMesh) this.lineMesh.visible = this.lineOn; Audio.ui('move'); this.cfg.onSetting && this.cfg.onSetting('lineGuide', this.lineOn); this.ui && this.ui.updToggles(); }
+
+  // LINE GUIDE: racing line on the road. Colour = speed plan (green: accelerate, yellow: lift, red: brake)
+  buildLineGuide() {
+    if (this.attract) return;
+    const t = this.track, n = t.n, ai = new AIDriver(t, 0.95, 0.5);
+    const mu = (this.player?.spec.tire.grip || 1) * this.world.grip;
+    const vmax = new Float32Array(n);
+    for (let i = 0; i < n; i++) { let k = 0; for (let o = -3; o <= 3; o++) k += Math.abs(t.k[t.idx(i + o)]); k = k / 7 + 1e-4; vmax[i] = Math.min(70, Math.sqrt(mu * 9.81 * 0.8 / k)); }
+    const plan = Float32Array.from(vmax);
+    for (let pass = 0; pass < (t.closed ? 2 : 1); pass++) for (let i = n - 2; i >= 0; i--) { const j = t.idx(i + 1); plan[i] = Math.min(plan[i], Math.sqrt(plan[j] * plan[j] + 2 * 6.5 * mu * 2)); }
+    const pos = [], col = [], idx = []; const c = new THREE.Color();
+    const W = 0.55;
+    for (let i = 0; i < n; i++) {
+      const d = ai.lineAt(t.s[i]);
+      const p = t.pointAt(t.s[i], d);
+      const ahead = plan[t.idx(i + 12)];
+      const braking = plan[i] < vmax[i] - 1.5 || ahead < plan[i] - 4;
+      const lift = !braking && ahead < plan[i] - 1;
+      if (braking) c.set('#ff2a2a'); else if (lift) c.set('#ffd400'); else c.set('#2aff5a');
+      pos.push(p.x - p.nx * W, p.y + 0.05, p.z - p.nz * W, p.x + p.nx * W, p.y + 0.05, p.z + p.nz * W);
+      col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+      if (i < n - 1 || t.closed) { const a = i * 2, b2 = ((i + 1) % n) * 2; idx.push(a, b2, a + 1, a + 1, b2, b2 + 1); }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
+    this.lineMesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, side: THREE.DoubleSide, fog: true }));
+    this.lineMesh.visible = this.lineOn; this.lineMesh.renderOrder = 2;
+    this.scene.add(this.lineMesh);
+    this.linePlan = plan;
   }
 
   start() {
@@ -102,7 +134,8 @@ export class Race {
       const depth = Math.abs(pr.d) - wall;
       const sgn = Math.sign(pr.d);
       const impact = v.collide(-sgn * pr.nx, -sgn * pr.nz, depth, 0.2, 0.3);
-      if (impact > 2 && car === this.focus) { Audio.crash(impact); this.shake = Math.min(1, impact / 12); }
+      if (impact > 2 && car === this.focus) { Audio.crash(impact); this.shake = Math.min(1, impact / 12) * this.camShake; }
+      if (impact > 3) { car.condition = Math.max(20, car.condition - impact * 0.7); v.powerFactor = 0.94 + 0.06 * car.condition / 100; }
     }
     car.offroad = Math.abs(pr.d) > hw + 0.1 ? 1 : 0;
     v.surfaceGrip = this.world.grip * (car.offroad ? 0.7 : 1);
@@ -166,8 +199,11 @@ export class Race {
   update(dt) {
     if (this.paused) return;
     dt = Math.min(dt, 0.05);
-    this.clock += dt;
+    this.clock += dt; this._dt = dt;
     const inp = this.player && !this.attract ? Input.drive(dt) : null;
+    if (inp) this.lastInput = inp;
+    if (inp && Input.edge('KeyG')) this.toggleGhost();
+    if (inp && Input.edge('KeyL')) this.toggleLine();
     if (inp?.camera) this.camMode = (this.camMode + 1) % 3;
     if (inp?.reset && this.state === 'race' && this.player) this.resetCar(this.player);
 
@@ -261,11 +297,12 @@ export class Race {
       while (this.secIdx < marks.length && p >= marks[this.secIdx]) {
         const time = this.raceTime; const prev = this.sections.length ? this.sections[this.sections.length - 1] : 0;
         this.sections.push(time);
-        const bestSec = this.cfg.best?.sections?.[this.sections.length - 1];
-        this.showSection(time - prev, bestSec != null ? time - bestSec : null);
+        const bs = this.cfg.best?.sections; const j = this.sections.length - 1;
+        const bestSplit = bs && bs[j] != null ? bs[j] - (j ? bs[j - 1] : 0) : null;
+        this.showSection(time - prev, bestSplit != null ? (time - prev) - bestSplit : null);
         this.secIdx++;
       }
-      if (this.hud) this.hud.warn.style.display = this.player.wrong > 1.2 ? 'block' : 'none';
+
     }
     // battle end: when player finishes or rival is too far ahead
     if (this.cfg.mode === 'battle' && this.player && !this.player.finished && this.state === 'race') {
@@ -290,8 +327,10 @@ export class Race {
       rivalTime: this.cars.find(c => c !== this.player)?.finishTime ?? null,
       ghost: { frames: this.ghostRec, spec: this.player.spec, dress: this.player.dress },
       distance: this.player.prog,
+      advantage: (() => { const r = this.cars.find(c => c !== this.player); return r ? this.player.prog - r.prog : null; })(),
+      condition: this.player.condition,
     };
-    setTimeout(() => this.cfg.onFinish && this.cfg.onFinish(res), 3200);
+    setTimeout(() => { if (!this.disposed && this.cfg.onFinish) this.cfg.onFinish(res); }, 3200);
   }
 
   positionOf(car) {
@@ -313,10 +352,16 @@ export class Race {
     const m = this.ghost.model; m.root.visible = true;
     m.root.position.set(a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k, a[3] + (b[3] - a[3]) * k);
     m.root.rotation.set(0, a[4] + dy * k, 0);
-    // ghost delta vs player progress
-    if (this.player && this.hud && this.state === 'race') {
-      const gx = m.root.position.x, gz = m.root.position.z;
-      const gp = this.track.project(gx, gz, this._ghint ?? -1, m.root.position.y); this._ghint = gp.i;
+    m.root.visible = this.ghostOn;
+    // compare with the player: time delta at the same progress, and distance gap at the same time
+    if (this.player && this.state === 'race') {
+      const g = this.ghost;
+      if (!g.prog) { g.prog = []; let hint = -1, last = null, acc = 0; for (const fr of f) { const q = this.track.project(fr[1], fr[3], hint, fr[2]); hint = q.i; if (last != null) { let ds = q.s - last; if (this.track.closed) { if (ds < -this.track.length / 2) ds += this.track.length; if (ds > this.track.length / 2) ds -= this.track.length; } acc += ds; } else acc = q.s; last = q.s; g.prog.push(acc); } }
+      const gp = g.prog, pr = this.player.prog;
+      const ghostProgNow = gp[lo] + (gp[hi] - gp[lo]) * k;
+      this.ghostGap = pr - ghostProgNow; // + = player ahead of the ghost
+      let i = 0; while (i < gp.length - 1 && gp[i + 1] < pr) i++;
+      if (i < gp.length - 1) { const kk = Math.max(0, Math.min(1, (pr - gp[i]) / Math.max(0.01, gp[i + 1] - gp[i]))); this.ghostDelta = this.raceTime - (f[i][0] + (f[i + 1][0] - f[i][0]) * kk); }
     }
   }
 
@@ -353,6 +398,8 @@ export class Race {
       this.camLook.set(v.x + sy * 3, car.surfY + m.look, v.z + cy * 3);
       this.camera.fov = 60 + Math.min(16, spd * 0.16);
     }
+    // speed shake (adjustable in SETTINGS)
+    if (this.camShake > 0 && spd > 25) { const a = (spd - 25) * 0.0009 * this.camShake; this.camera.position.x += (Math.random() - .5) * a; this.camera.position.y += (Math.random() - .5) * a; }
     if (this.shake > 0) { this.camera.position.x += (Math.random() - .5) * this.shake * 0.3; this.camera.position.y += (Math.random() - .5) * this.shake * 0.2; this.shake -= dt * 3; }
     this.camera.updateProjectionMatrix();
     this.camera.lookAt(this.camLook);
@@ -383,51 +430,15 @@ export class Race {
     m.classList.remove('show'); void m.offsetWidth; m.classList.add('show');
   }
   showSection(split, delta) {
-    if (!this.hud) return;
     Audio.ui('section');
-    const el = this.hud.sec;
-    el.innerHTML = `SECTION ${this.sections.length} &nbsp; ${fmt(this.raceTime)}` + (delta != null ? ` &nbsp; <span class="delta ${delta < 0 ? 'minus' : 'plus'}">${fmtDelta(delta)}</span>` : '');
-    el.style.opacity = 1; clearTimeout(this._secT); this._secT = setTimeout(() => el.style.opacity = 0, 2600);
-    this.renderSecs();
+    if (this.ui) this.ui.sectionPopup(this.sections.length, split, delta);
   }
-  renderSecs() {
-    const n = this.track.sections.length * this.laps + (this.laps - 1) + 1;
-    let html = '';
-    for (let i = 0; i < n; i++) html += `<div class="${this.sections[i] != null ? 'done' : 'pend'}">S${i + 1} ${this.sections[i] != null ? fmt(this.sections[i]) : '--\'--"---'}</div>`;
-    this.hud.secs.innerHTML = html;
-  }
-
-  updateHud() {
-    const h = this.hud, p = this.player; if (!p) return;
-    const t = this.state === 'countdown' ? 0 : (p.finished ? p.finishTime ?? this.raceTime : this.raceTime);
-    h.time.textContent = fmt(t);
-    // live delta vs ghost/best by progress
-    if (this.ghost && this.state === 'race') {
-      const f = this.ghost.data.frames; const pr = this.player.prog;
-      // find ghost time at the player's progress (frames carry positions; precompute progress lazily)
-      if (!this.ghost.prog) { this.ghost.prog = []; let hint = -1, last = null, acc = 0; for (const fr of f) { const q = this.track.project(fr[1], fr[3], hint, fr[2]); hint = q.i; if (last != null) { let ds = q.s - last; if (this.track.closed) { if (ds < -this.track.length / 2) ds += this.track.length; if (ds > this.track.length / 2) ds -= this.track.length; } acc += ds; } else acc = q.s; last = q.s; this.ghost.prog.push(acc); } }
-      const gp = this.ghost.prog; let i = 0; while (i < gp.length - 1 && gp[i + 1] < pr) i++;
-      if (i < gp.length - 1) { const k = (pr - gp[i]) / Math.max(0.01, gp[i + 1] - gp[i]); const gt = f[i][0] + (f[i + 1][0] - f[i][0]) * Math.max(0, Math.min(1, k)); const d = this.raceTime - gt; h.delta.textContent = fmtDelta(d); h.delta.className = 'delta ' + (d < 0 ? 'minus' : 'plus'); }
-    } else if (!this.ghost) h.delta.textContent = '';
-    if (this.cfg.mode === 'battle') {
-      const pos = this.positionOf(p); h.posNum.textContent = pos; h.posSuf.textContent = pos === 1 ? 'st' : 'nd';
-      const rival = this.cars.find(c => c !== p);
-      if (rival) { const gap = (p.prog - rival.prog); h.gap.textContent = (gap >= 0 ? '+' : '') + gap.toFixed(0) + 'm'; }
-    }
-    if (this.laps > 1) h.lap.textContent = `LAP ${Math.min(this.laps, Math.floor(Math.max(0, p.prog) / this.track.length) + 1)}/${this.laps}`;
-    const v = p.veh;
-    this.tacho.draw(v, v.spec, v.kmh, { auto: this.autoGear, warn: p.wrong > 1.2 ? 'WRONG WAY' : (p.offroad ? 'COURSE OUT' : null) });
-    const dots = this.cars.map(c => ({ x: c.veh.x, z: c.veh.z, yaw: c.veh.yaw, color: c.color }));
-    if (this.ghost && this.ghost.model.root.visible) dots.unshift({ x: this.ghost.model.root.position.x, z: this.ghost.model.root.position.z, yaw: this.ghost.model.root.rotation.y, color: '#36c3ff', alpha: 0.6 });
-    this.mini.draw(dots);
-    const da = Math.abs(v.driftAngle) * 57.3;
-    h.drift.style.opacity = da > 14 && v.speed > 10 ? 1 : 0;
-    if (da > 14) h.drift.textContent = `DRIFT ${da.toFixed(0)}°`;
-  }
+  updateHud() { if (this.ui) this.ui.update(this._dt || 0.016); }
 
   setPaused(p) { this.paused = p; if (p) for (const c of this.cars) c.engine && c.engine.update(c.veh, 0, { dist: 9999 }); }
 
   dispose() {
+    this.disposed = true;
     for (const c of this.cars) { c.engine && c.engine.stop(); c.model.dispose(); }
     this.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); } });
   }

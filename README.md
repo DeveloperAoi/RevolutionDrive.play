@@ -27,11 +27,12 @@ python3 -m http.server 8000
 | シフトアップ/ダウン(MT時) | E / Q | RB / LB |
 | カメラ切替 | C | — |
 | コース復帰 | R | — |
+| ゴースト / ラインガイド | G / L | — |
 | ポーズ | ESC | START |
 
 スマートフォンでは画面上のタッチボタンで操作できます。
 
-## 現在のコンテンツ(Ver.1.10)
+## 現在のコンテンツ(Ver.1.20)
 
 - **モード**: TIME TRIAL(ゴースト・セクションタイム・自己ベスト)、COURSE BATTLE(CPU 4段階)、SPECIAL(期間限定チャレンジ)
 - **準備中**: STORY / LOCAL BATTLE / ONLINE BATTLE(CODE BATTLE・WORLDWIDE MATCH)
@@ -43,6 +44,8 @@ python3 -m http.server 8000
 - **WHEEL**: 架空ブランド4社・9デザイン、ホイールカラー/リムカラー、15〜19インチ、オフセット、タイヤ外観、前後別設定
 - **METER**: 8デザイン(DEFAULT/INFINITY/FORMULA/FUTURE/DIGITAL/CLASSIC/SPORT/RACING)× 背景・文字色・照明。レースHUDに反映
 - **TUNING**: 6カテゴリ17パーツ、各Lv.1〜5、チューニングポイント(レース完走・タイムアタック・イベントで獲得)。走行挙動に反映
+- **RACE HUD**: モード別HUD(タイムアタック / バトル)、コーナー警告標識(曲率から自動判定)、回転ミニマップ、相手の順位タグ、ADVANTAGE、区間タイム(自己ベスト比で色分け)、目標タイム、入力表示、車両コンディション、ドリフト擬音
+- **GHOST / LINE GUIDE**: 自己ベストの実走行データを再生(距離差・タイム差表示)、加減速プラン付き走行ライン。G / L キーまたはタップで切替、透明度・色・カメラ揺れはSETTINGSで保存
 - カスタマイズ画面は3分タイマー(時間切れで自動保存、SETTINGSで無効化可)
 
 ## Firebase の設定(アカウント機能)

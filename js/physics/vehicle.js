@@ -155,7 +155,7 @@ export class Vehicle {
     } else this.boost = 1;
 
     const torqueFrac = this.torqueAt(this.rpm) * (s.sound.turbo ? 0.62 + 0.38 * this.boost : 1);
-    let engineTorque = (cut || shifting) ? 0 : torqueFrac * this.peakTorque * throttle;
+    let engineTorque = (cut || shifting) ? 0 : torqueFrac * this.peakTorque * throttle * (this.powerFactor || 1);
     // engine braking
     if (throttle < 0.05 && !shifting && this.gear !== 0) engineTorque -= this.peakTorque * 0.18 * (this.rpm / e.redline);
     let driveForce = engineTorque * ratio * 0.86 / R * (this.gear === 0 ? 0 : 1) * Math.max(0.35, this.clutch);
