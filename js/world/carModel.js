@@ -394,7 +394,7 @@ export function createCar(spec, dressIn = {}, opts = {}) {
       root.rotation.set(-surf.pitch, v.yaw, surf.roll);
       body.rotation.x = v.pitch; body.rotation.z = -v.roll;
       body.position.y = -drop - Math.abs(v.pitch) * 0.3;
-      for (const w of wheels) { w.spin.rotation.x = v.wheelRot; if (w.front) w.steer.rotation.y = v.steer; }
+      for (const w of wheels) { w.spin.rotation.x = w.front ? (v.wheelRotF ?? v.wheelRot) : (v.wheelRotR ?? v.wheelRot); if (w.front) w.steer.rotation.y = v.steer; }
     },
     showcase(t, spinWheels = false) { body.position.y = -drop; body.rotation.set(0, 0, 0); for (const w of wheels) { w.spin.rotation.x = spinWheels ? t * 6 : 0; w.steer.rotation.y = w.front ? Math.sin(t * 0.5) * 0.25 : 0; } },
     dispose() { root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); },
