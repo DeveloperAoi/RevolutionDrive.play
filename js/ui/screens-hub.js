@@ -79,7 +79,7 @@ function hubScreen(def) {
     },
     leave() { stopTimer(); stopClockHub(); },
     layout() {
-      const n = this.cards.length, loop = def.loop !== false && n > 3, W = 316, CX = 1080;
+      const n = this.cards.length, loop = def.loop !== false && n > 3, W = 316, CX = 1080 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stage-extra')) || 0);
       this.cards.forEach((c, k) => {
         let d = k - this.i; if (loop) { if (d > n / 2) d -= n; if (d < -n / 2) d += n; }
         const vis = Math.abs(d) <= (loop ? 3 : n);

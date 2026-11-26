@@ -9,12 +9,31 @@ export function el(html) { const t = document.createElement('template'); t.inner
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // ---- stage scaling (16:9 virtual 1920x1080) ----
+// Fit the 1920x1080 design stage to any phone/tablet/PC screen.
+// - respects notches / home indicators (safe-area insets)
+// - on screens wider than 16:9 the stage grows sideways so the HUD and menus reach the edges
+//   (screens can opt out with `narrow: true`); on taller screens (tablets) it grows downwards
+let safeProbe = null;
+function safeInsets() {
+  if (!safeProbe) { safeProbe = document.createElement('div'); safeProbe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)'; document.body.appendChild(safeProbe); }
+  const cs = getComputedStyle(safeProbe);
+  return { l: parseFloat(cs.paddingLeft) || 0, r: parseFloat(cs.paddingRight) || 0, t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 };
+}
 export function fitStage() {
-  const st = $('#stage'); const s = Math.min(innerWidth / 1920, innerHeight / 1080);
-  // screens flagged "wide" (race HUD) stretch the stage to the full width of wider-than-16:9 phones
-  const w = UI.current && UI.current.wide && innerWidth / innerHeight > 16 / 9 ? Math.round(innerWidth / s) : 1920;
-  st.style.width = w + 'px';
-  st.style.transform = `scale(${s})`;
+  const st = $('#stage'), wrap = $('#stage-wrap'); const ins = safeInsets();
+  const W = Math.max(320, innerWidth - ins.l - ins.r), H = Math.max(200, innerHeight - ins.t - ins.b);
+  const s = Math.min(W / 1920, H / 1080);
+  const flex = !(UI.current && UI.current.narrow);
+  const w = flex && W / H > 16 / 9 ? Math.round(W / s) : 1920;
+  const h = 1080; // taller screens (tablets) are letterboxed vertically — layouts are designed for 1080
+  st.style.width = w + 'px'; st.style.height = h + 'px';
+  st.style.transform = `scale(${Math.min(W / w, H / h)})`;
+  wrap.style.padding = `${ins.t}px ${ins.r}px ${ins.b}px ${ins.l}px`;
+  document.documentElement.style.setProperty('--stage-w', w + 'px');
+  document.documentElement.style.setProperty('--stage-h', h + 'px');
+  document.documentElement.style.setProperty('--stage-extra', ((w - 1920) / 2) + 'px');
+  // small phones: enlarge the most important texts / touch targets
+  document.body.classList.toggle('compact', s < 0.42); document.body.classList.toggle('tiny', s < 0.33);
 }
 
 // ---- screens ----

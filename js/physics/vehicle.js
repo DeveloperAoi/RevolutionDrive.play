@@ -88,7 +88,7 @@ export class Vehicle {
     let delta = -this.steerIn * maxSteer;
     if (assist > 0 && speed > 6 && u > 0) {
       // while sliding, the front wheels are pulled toward the direction of travel (automatic counter-steer)
-      const k = assist * Math.max(0, Math.min(1, (Math.abs(beta) - 0.04) / 0.18));
+      const k = assist * 0.7 * Math.max(0, Math.min(1, (Math.abs(beta) - 0.04) / 0.18));
       const counter = Math.max(-0.75, Math.min(0.75, beta - this.steerIn * 0.38));
       delta += (counter - delta) * k;
     }
@@ -207,11 +207,25 @@ export class Vehicle {
     let Fy = FyR + FyF * cd + FxF * sd;
     let Mz = this.a * (FyF * cd + FxF * sd) - this.b * FyR - 0.04 * m * this.r;
 
-    // ---- arcade layer (scaled by DRIFT ASSIST): gentle angle limit, no spring-back --------------------
+    // ---- drift controller (scaled by DRIFT ASSIST) ------------------------------------------------
+    // The slide angle follows the steering: hold the stick → hold the angle, release → the car straightens
+    // smoothly (critically damped, so it never swings over to the other side).
     const ab = Math.abs(beta);
-    if (assist > 0 && speed > 4) {
-      if (ab > 0.55) Mz += Math.sign(beta) * assist * m * 15 * (ab - 0.55);
-      if (ab > 0.7 && this.r * beta < 0) Mz -= assist * this.r * this.inertia * 0.6;
+    const bRate = (beta - (this._pb ?? beta)) / Math.max(dt, 1e-4); this._pb = beta;
+    if (assist > 0 && u > 6) {
+      const steerIn = this.steerIn;
+      const w = assist * Math.max(hb ? 1 : 0, Math.min(1, (ab - 0.05) / 0.12));
+      if (w > 0) {
+        const betaDes = Math.max(-0.75, Math.min(0.75, steerIn * (0.7 + (throttle > 0.4 ? 0.05 : 0))));
+        Mz += this.inertia * w * (-(betaDes - beta) * 7 + bRate * 2.6);
+      }
+      // easy entry: handbrake, or braking while steering, kicks the tail out toward the steering side
+      if ((hb || (brake > 0.3 && Math.abs(steerIn) > 0.5) || (throttle > 0.8 && Math.abs(steerIn) > 0.8 && s.drive !== 'FF')) && ab < 0.35 && Math.abs(steerIn) > 0.2)
+        Mz -= Math.sign(steerIn) * this.inertia * assist * (hb ? 3.2 : 1.6);
+      // hard cap so the car can never spin round
+      if (ab > 0.95) Mz += Math.sign(beta) * this.inertia * assist * (ab - 0.95) * 30;
+      // keep momentum in a held slide
+      if (ab > 0.12 && throttle > 0.3) Fx += m * 1.2 * assist * throttle * Math.min(1, (ab - 0.12) * 3);
     }
     if (s.stability && u > 5) Mz -= this.r * this.inertia * 0.010 * s.stability * Math.min(1, ab * 4 + 0.2);
 
