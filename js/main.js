@@ -11,6 +11,7 @@ import './ui/screens-garage.js';
 import './ui/screens-race.js';
 import './ui/screens-hub.js';
 import './ui/screens-online.js';
+import './ui/screens-story.js';
 import { preloadPacks } from './data/glbcars.js';
 
 export async function goFullscreen() {

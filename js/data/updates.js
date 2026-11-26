@@ -1,6 +1,15 @@
 // REVOLUTION DRIVE — update log (newest first). Shown in お知らせ / UPDATE LOG.
 export const UPDATES = [
   {
+    ver: 'Ver.1.60.00', date: '2026-11-27', title: 'ストーリーモード SEASON 1',
+    items: [
+      'ストーリーモードを開放:SEASON 1「峠の目覚め」全4編・16話(初級〜超上級)',
+      'ストーリー選択画面、会話シーン、VS演出、ストーリーリザルト(ストーリーランク昇格)',
+      '話をクリアするとTune POINT(チューニングポイント)を獲得。ボス戦は大量獲得',
+      'オリジナルのライバル16人(すべて架空のキャラクター)',
+    ],
+  },
+  {
     ver: 'Ver.1.52.00', date: '2026-11-27', title: '新車7台を追加',
     items: [
       '3Dモデルの新車7台:SORA VORTEX TS / KAZEMOTO TERRA V10 / TSUBAME ARC HYBRID / KUROGANE LUMEN S / AOBA FOCALE RS / RYUJIN SCARLET V12 / KUROGANE HIGHLAND SV',

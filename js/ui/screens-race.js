@@ -13,6 +13,8 @@ import { Race } from '../game/race.js';
 import { COURSES, courseById } from '../data/courses.js';
 import { CARS, buildSpec, carById } from '../data/cars.js';
 import { fmt, fmtDelta } from '../game/hud.js';
+import { storyFinish } from './screens-story.js';
+const storyFinishWrap = (res, id) => { const d = storyFinish(res, id); Save.persistNow('story'); return d; };
 const RIVAL_NAMES = [['ハヤト', 'MIDNIGHT WOLVES', 2], ['リン', 'SKYLINE ANGELS', 4], ['ゴウ', 'IRON RIDGE', 3], ['ミサキ', 'NIGHT KITE', 5], ['ケンジ', 'RED SUNSET', 7], ['ユウ', 'BLUE FLAME', 1]];
 
 UI.register({
@@ -67,11 +69,11 @@ UI.register({
     if (params.mode === 'battle' && !params.online) {
       // rival: a different car with tuning scaled by CPU level
       const pool = CARS.filter(c => c.id !== gc.carId);
-      const rc = pool[Math.floor(Math.random() * pool.length)];
+      const rc = params.rival ? carById(params.rival.carId) : pool[Math.floor(Math.random() * pool.length)];
       const lvl = params.cpu || { skill: 0.9, aggr: 0.45 };
       const t = Math.round((lvl.skill - 0.8) * 15);
-      const nm = RIVAL_NAMES[Math.floor(Math.random() * RIVAL_NAMES.length)];
-      rivals.push({ spec: buildSpec(rc, { engine: t, tires: t, weight: t, suspension: t }), dress: { paint: ['red', 'black', 'blue', 'silver'][Math.floor(Math.random() * 4)], wheel: 'gold6', spoiler: 'mid', aero: 'street', decal: 'number', number: '99' }, skill: lvl.skill, aggr: lvl.aggr, name: nm[0], team: nm[1], carName: rc.name, rp: Math.round(Save.profile.rp * 0.8 + lvl.skill * 600 - 400), icon: nm[2] });
+      const nm = params.rival ? [params.rival.name, params.rival.team, 3] : RIVAL_NAMES[Math.floor(Math.random() * RIVAL_NAMES.length)];
+      rivals.push({ spec: buildSpec(rc, params.rival ? params.rival.tune : { engine: t, tires: t, weight: t, suspension: t }), dress: params.rival ? { color: { hex: params.rival.color, finish: 'metallic' }, wheel: 'gold6' } : { paint: ['red', 'black', 'blue', 'silver'][Math.floor(Math.random() * 4)], wheel: 'gold6', spoiler: 'mid', aero: 'street', decal: 'number', number: '99' }, skill: lvl.skill, aggr: lvl.aggr, name: nm[0], team: nm[1], carName: rc.name, rp: Math.round(Save.profile.rp * 0.8 + lvl.skill * 600 - 400), icon: nm[2] });
     }
     const net = params.online || null;
     if (net && net.peer) {
@@ -130,7 +132,7 @@ UI.register({
     if (i === 0) return this.togglePause();
     if (i === 1) { Audio.ui('ok'); this.cleanup(); return UI.go('race', this.params, { wipe: true }); }
     if (i === 2) { this.race.camMode = (this.race.camMode + 1) % 3; App.settings.camera = this.race.camMode; Audio.ui('move'); return; }
-    if (i === 3) { Audio.ui('back'); this.cleanup(); Audio.stopEngines(); return UI.go(this.params.event ? 'special' : 'course'); }
+    if (i === 3) { Audio.ui('back'); this.cleanup(); Audio.stopEngines(); return UI.go(this.params.story ? 'story' : this.params.event ? 'special' : 'course'); }
   },
   async finish(res) {
     const p = Save.profile; const gc = Save.activeCar;
@@ -172,6 +174,7 @@ UI.register({
     if (this.params.online) this.params.online.leave();
     res.cars = this.race ? this.race.cars.length : 2;
     if (this.race) { res.targets = this.race.ui ? this.race.ui.targets : targetTimes(this.race); res.weather = this.params.weather; res.tod = this.params.time; const rv = this.race.cars.find(c => c !== this.race.player); if (rv) { res.rivalName = rv.name; res.rivalCar = rv.carName; } }
+    if (this.params.story) return UI.go('storyresult', storyFinishWrap(res, this.params.story.epId));
     UI.go('result', { res, prev, newRecord, ghostSaved: newRecord && res.mode === 'trial', credits, rp, tp, rankBefore, rankAfter: rankOf(p.rp), unlocked, event, params: this.params });
   },
   onAction(a) {

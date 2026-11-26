@@ -73,7 +73,7 @@ function renderRow(row, items, sel, equipped, onPick) {
 const MODES = [
   { id: 'trial', name: 'TIME TRIAL', sub: 'Time Trial', jp: 'タイムトライアル', desc: 'ひとりでコースを全開走行。自己ベストとゴーストに挑み、セクションタイムを削り取れ!', reward: 'クレジット / TP / 新記録ボーナス', grad: ['#2a6ad0', '#0a1838'], on: true, glyph: '⏱' },
   { id: 'special', name: 'SPECIAL', sub: 'Special', jp: 'スペシャル', desc: '期間限定のチャレンジイベント。指定の条件で目標タイムを切れば特別報酬!', reward: '高額クレジット / TP', grad: ['#9a2ad0', '#1a0a30'], on: true, glyph: '★' },
-  { id: 'story', name: 'STORY', sub: 'Single-Player', jp: 'ストーリー', desc: '各地の峠に君臨する走り屋たちが君を待ち受ける!戦いを重ねて卓越した技術を手に入れろ。', reward: 'ストーリー報酬', grad: ['#d07a1a', '#301a06'], on: false, glyph: '章' },
+  { id: 'story', name: 'STORY', sub: 'Single-Player', jp: 'ストーリー', desc: '各地の峠に君臨する走り屋たちが君を待ち受ける!SEASON 1「峠の目覚め」全16話。話をクリアするとチューニングポイントを獲得。', reward: 'Tune POINT / クレジット / ストーリーランク', grad: ['#d07a1a', '#301a06'], on: true, glyph: '章' },
   { id: 'battle', name: 'COURSE BATTLE', sub: 'Course Battle', jp: 'コースバトル', desc: 'CPUライバルと1対1のバトル。難易度を選んで、峠の頂点を奪い取れ!', reward: '勝利ボーナス / TP', grad: ['#d01a2a', '#300608'], on: true, glyph: 'VS' },
   { id: 'local', name: 'LOCAL BATTLE', sub: 'Local Battle', jp: 'ローカルバトル', desc: '同じ端末・同じネットワーク内のプレイヤーと対戦。', reward: '—', grad: ['#1ab07a', '#062a1a'], on: false, glyph: 'LAN' },
   { id: 'online', name: 'ONLINE BATTLE', sub: 'Online Battle', jp: 'オンラインバトル', desc: 'CODE BATTLE(ルームコード対戦)と WORLDWIDE MATCH(世界マッチング)。', reward: 'オンラインRP', grad: ['#1a9ad0', '#06202e'], on: true, glyph: 'NET' },
@@ -136,6 +136,7 @@ UI.register({
     if (m.id === 'trial' || m.id === 'battle') { App.pending.mode = m.id; App.pending.event = null; UI.go('course'); }
     else if (m.id === 'special') UI.go('special');
     else if (m.id === 'online') UI.go('online');
+    else if (m.id === 'story') UI.go('story');
     else if (m.id === 'garage') UI.go('garage');
     else if (m.id === 'profile') UI.go('profile');
     else UI.go('settings', { back: 'mode' });
