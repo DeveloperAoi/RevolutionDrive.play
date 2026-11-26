@@ -107,6 +107,22 @@ export class Showroom {
     const drumM = new THREE.MeshStandardMaterial({ color: 0x1a4a9a, roughness: 0.5, metalness: 0.4 });
     for (const [x, z] of [[10, 3], [10.8, 4.2], [-10.5, -8]]) { const d = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.1, 16), drumM); d.position.set(x, 0.55, z); s.add(d); }
     this.car = null; this.yaw = 0.7; this.spin = 0.25; this.drag = null; this.t = 0; this.dist = 11.5; this.offsetX = 0;
+    // bright photo studio (car select): white cyclorama, glossy floor, soft key light with real shadows
+    this.baseObjs = [...s.children];
+    const st = this.studio = new THREE.Group(); st.visible = false; s.add(st);
+    const cyc = new THREE.Mesh(new THREE.CylinderGeometry(24, 24, 30, 64, 1, true), new THREE.MeshBasicMaterial({ color: 0xf4f5f7, side: THREE.BackSide, fog: false }));
+    cyc.position.y = 12; st.add(cyc);
+    const glowT = TX.glowTexture('rgba(255,255,255,1)', 'rgba(200,206,214,0)');
+    const sfloor = new THREE.Mesh(new THREE.CircleGeometry(24, 64), new THREE.MeshPhysicalMaterial({ color: 0xe9ebee, roughness: 0.18, metalness: 0.0, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 0.6 }));
+    sfloor.rotation.x = -Math.PI / 2; sfloor.receiveShadow = true; st.add(sfloor);
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(13, 8.5), new THREE.MeshBasicMaterial({ map: glowT, transparent: true, opacity: 0.85, depthWrite: false }));
+    pool.rotation.x = -Math.PI / 2; pool.position.y = 0.01; st.add(pool);
+    const ringS = new THREE.Mesh(new THREE.RingGeometry(3.3, 3.42, 96), new THREE.MeshBasicMaterial({ color: 0xc9ced6, transparent: true, opacity: 0.9 }));
+    ringS.rotation.x = -Math.PI / 2; ringS.position.y = 0.012; st.add(ringS); this.studioRing = ringS;
+    st.add(new THREE.HemisphereLight(0xffffff, 0xb8bcc4, 1.3));
+    const keyL = new THREE.DirectionalLight(0xffffff, 2.2); keyL.position.set(3, 10, 4); keyL.castShadow = true; keyL.shadow.mapSize.set(2048, 2048);
+    Object.assign(keyL.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 30 }); keyL.shadow.radius = 6; keyL.shadow.bias = -0.0004; st.add(keyL, keyL.target);
+    const rimL = new THREE.DirectionalLight(0xdfe8ff, 1.0); rimL.position.set(-6, 4, -6); st.add(rimL);
     this.bindDrag();
   }
   bindDrag() {
@@ -119,10 +135,16 @@ export class Showroom {
     addEventListener('pointermove', (e) => move(e.clientX));
     addEventListener('pointerup', up);
   }
+  setStudio(on) {
+    this.studioOn = on; this.studio.visible = on; this.baseObjs.forEach(o => o.visible = !on);
+    this.scene.background = new THREE.Color(on ? 0xf4f5f7 : 0x1a1c20); this.scene.fog.color.set(on ? 0xf4f5f7 : 0x1a1c20); this.scene.fog.near = on ? 30 : 18; this.scene.fog.far = on ? 60 : 40;
+    this.bloom = on ? 0.05 : 0.1; if (this.car) this.car.root.position.y = on ? 0 : 0.08;
+  }
   setCar(spec, dress, opts = {}) {
     if (this.car) { this.scene.remove(this.car.root); this.car.dispose(); }
     this.car = createCar(spec, dress, opts);
-    this.car.root.position.y = 0.08;
+    this.car.root.traverse(o => { if (o.isMesh && !(o.material.isMeshBasicMaterial && o.material.transparent)) o.castShadow = true; });
+    this.car.root.position.y = this.studioOn ? 0 : 0.08;
     this.scene.add(this.car.root);
   }
   // place the turntable in a screen window (fractions of the 16:9 stage) and choose a camera preset

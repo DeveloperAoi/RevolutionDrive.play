@@ -168,7 +168,7 @@ UI.register({
   },
   enter(params = {}) {
     this.mode = params.mode || 'add';
-    App.gfx.setView(App.showroom); App.showroom.setWindow(0.47, 0.37, 0.72); App.showroom.setPreset('free');
+    App.gfx.setView(App.showroom); App.showroom.setStudio(true); App.showroom.setWindow(0.47, 0.37, 0.72); App.showroom.setPreset('free');
     $('.pp', this.el).innerHTML = plate(); $('.cbx', this.el).innerHTML = consoleBox();
     if (this.mode === 'add' && !Save.canAddCar()) { dialog.alert('CAR ADD', `登録可能な車両は最大${MAX_GARAGE}台です。<br>ガレージで車両を削除すると空き枠を作れます。`).then(() => UI.go('garage')); return; }
     this.makers = Object.keys(MAKERS).filter(mk => CARS.some(c => c.maker === mk));
@@ -176,7 +176,7 @@ UI.register({
     this.renderMaker();
     startClock($('.cs-tm', this.el), 90, () => this.zone === 'list' ? this.openMenu() : this.mf.select());
   },
-  leave() { stopClock(); },
+  leave() { App.showroom.setStudio(false); stopClock(); },
   renderMaker() {
     const mk = this.makers[this.mi]; const m = MAKERS[mk];
     this.list = CARS.filter(c => c.maker === mk).sort((a, b) => a.price - b.price);
