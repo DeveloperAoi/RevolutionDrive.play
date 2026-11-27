@@ -1,5 +1,6 @@
 // REVOLUTION DRIVE — race session: world, cars, physics loop, rules, camera, ghost, HUD
 import * as THREE from 'three';
+import { RaceFX } from './fx.js';
 import { Track } from '../world/track.js';
 import { buildWorld } from '../world/scenery.js';
 import { createCar } from '../world/carModel.js';
@@ -25,6 +26,7 @@ export class Race {
     this.scene = new THREE.Scene();
     this.world = buildWorld(this.track, { time: cfg.time, weather: cfg.weather });
     this.scene.add(this.world.root); this.scene.fog = this.world.fog;
+    this.fx = new RaceFX(this.scene, { low: !gfx.hq, night: (cfg.time || this.def.time) !== 'day' });
     this.camera = new THREE.PerspectiveCamera(62, 16 / 9, 0.1, 6000);
     this.cars = [];
     this.state = 'intro'; this.clock = 0; this.raceTime = 0; this.acc = 0; this.paused = false;
@@ -270,6 +272,7 @@ export class Race {
       const dist = car === this.focus ? 0 : Math.hypot(car.veh.x - this.focus.veh.x, car.veh.z - this.focus.veh.z);
       if (car.engine) car.engine.update(car.veh, car.ctrl === 'player' && inp && running ? Math.max(inp.throttle, car.finished ? 0.3 : 0) : (car.ai || car.net ? 0.8 : 0), { dist, gravel: car.offroad });
     }
+    if (running) this.fx.update(dt, this.cars, this.focus);
     this.updateCamera(dt);
     this.world.update(this.camera, dt);
     if (this.world.shadowFollow && this.focus) this.world.shadowFollow(this.focus.model.root.position);
@@ -465,7 +468,7 @@ export class Race {
   setPaused(p) { this.paused = p; if (p) for (const c of this.cars) c.engine && c.engine.update(c.veh, 0, { dist: 9999 }); }
 
   dispose() {
-    this.disposed = true;
+    this.disposed = true; if (this.fx) this.fx.dispose();
     for (const c of this.cars) { c.engine && c.engine.stop(); c.model.dispose(); }
     this.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); } });
   }

@@ -9,6 +9,7 @@ import { EffectComposer } from '../../lib/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from '../../lib/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from '../../lib/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../../lib/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from '../../lib/jsm/postprocessing/ShaderPass.js';
 
 export class Gfx {
   constructor(canvas) {
@@ -24,7 +25,18 @@ export class Gfx {
     this.composer = new EffectComposer(r);
     this.renderPass = new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
     this.bloom = new UnrealBloomPass(new THREE.Vector2(960, 540), 0.55, 0.45, 0.82);
-    this.composer.addPass(this.renderPass); this.composer.addPass(this.bloom); this.composer.addPass(new OutputPass());
+    // cinematic grade: soft vignette, slight contrast/saturation, subtle film grain
+    this.grade = new ShaderPass({
+      uniforms: { tDiffuse: { value: null }, time: { value: 0 }, vig: { value: 0.0 } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: `uniform sampler2D tDiffuse; uniform float time; uniform float vig; varying vec2 vUv;
+        float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)) + time) * 43758.5453); }
+        void main(){ vec4 c = texture2D(tDiffuse, vUv); vec3 col = c.rgb;
+          float l = dot(col, vec3(0.299,0.587,0.114)); col = mix(vec3(l), col, 1.08); col = (col - 0.5) * 1.04 + 0.5;
+          vec2 d = vUv - 0.5; col *= 1.0 - vig * smoothstep(0.35, 0.85, length(d * vec2(1.25, 1.0)));
+          col += (h(vUv * 800.0) - 0.5) * 0.012; gl_FragColor = vec4(col, c.a); }`,
+    });
+    this.composer.addPass(this.renderPass); this.composer.addPass(this.bloom); this.composer.addPass(this.grade); this.composer.addPass(new OutputPass());
     this.hq = true;
     addEventListener('resize', () => this.resize()); this.resize();
   }
@@ -42,7 +54,7 @@ export class Gfx {
     if (v.camera.aspect !== this.aspect) { v.camera.aspect = this.aspect; v.camera.updateProjectionMatrix(); }
     if (this.hq && v.post !== false) {
       this.renderPass.scene = v.scene; this.renderPass.camera = v.camera;
-      this.bloom.strength = v.bloom ?? 0.55; this.bloom.threshold = v.bloom != null && v.bloom < 0.3 ? 0.95 : 0.82;
+      this.bloom.strength = v.bloom ?? 0.55; this.grade.uniforms.vig.value = v.vignette ?? 0; this.grade.uniforms.time.value = (this.grade.uniforms.time.value + dt * 7) % 100; this.bloom.threshold = v.bloom != null && v.bloom < 0.3 ? 0.95 : 0.82;
       this.composer.render(dt);
     } else this.renderer.render(v.scene, v.camera);
   }

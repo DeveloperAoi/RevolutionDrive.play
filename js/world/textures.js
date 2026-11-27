@@ -224,3 +224,22 @@ export function cloudTexture(seed = 0) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return (cache[key] = t);
 }
+
+// painted foliage cards (alpha): 'cedar' = conical Japanese cedar, 'broad' = rounded broadleaf crown
+export function treeTexture(kind = 'cedar') {
+  const key = 'tree' + kind; if (cache[key]) return cache[key];
+  const [c, g] = canvas(256, 512); const r = rand(kind === 'cedar' ? 31 : 47);
+  const leaf = (x, y, s, l) => { const h = 95 + r() * 30, sat = 35 + r() * 25; g.fillStyle = `hsl(${h},${sat}%,${l}%)`; g.beginPath(); g.ellipse(x, y, s, s * (0.45 + r() * 0.3), r() * 3.14, 0, 7); g.fill(); };
+  if (kind === 'cedar') {
+    g.fillStyle = '#3a2a1c'; g.fillRect(122, 380, 12, 132);
+    for (let i = 0; i < 2600; i++) {
+      const yy = 20 + Math.pow(r(), 0.85) * 400; const half = 8 + (yy - 20) / 400 * 112; const x = 128 + (r() * 2 - 1) * half * (0.6 + 0.4 * Math.sin(yy * 0.09) ** 2);
+      const shade = 14 + r() * 16 + (x - 128) / half * 7 + (1 - yy / 420) * 8; leaf(x, yy, 3 + r() * 5, shade);
+    }
+  } else {
+    g.fillStyle = '#4a3624'; g.fillRect(118, 300, 20, 212); g.save(); g.strokeStyle = '#4a3624'; g.lineWidth = 6; g.beginPath(); g.moveTo(128, 330); g.lineTo(80, 250); g.moveTo(128, 320); g.lineTo(180, 240); g.stroke(); g.restore();
+    const blobs = [[128, 170, 105], [70, 230, 70], [186, 225, 70], [128, 260, 80], [100, 120, 60], [160, 115, 60]];
+    for (const [bx, by, br] of blobs) for (let i = 0; i < 520; i++) { const a = r() * 6.28, d = Math.sqrt(r()) * br; const x = bx + Math.cos(a) * d, y = by + Math.sin(a) * d * 0.85; leaf(x, y, 3 + r() * 6, 18 + r() * 18 + (by - y) / br * 9 + (x - bx) / br * 5); }
+  }
+  const t = tex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.repeat.set(1, 1); return (cache[key] = t);
+}

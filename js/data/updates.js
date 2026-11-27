@@ -1,6 +1,14 @@
 // REVOLUTION DRIVE — update log (newest first). Shown in お知らせ / UPDATE LOG.
 export const UPDATES = [
   {
+    ver: 'Ver.1.90.00', date: '2026-11-27', title: 'リアルグラフィック強化',
+    items: [
+      'ドリフト時のタイヤスモークと路面に残るブラックマーク',
+      '木を葉の質感が見えるリアルな杉・広葉樹に変更(紅葉峠は紅葉)',
+      'シネマティックな色調補正(ビネット・コントラスト・フィルムグレイン)',
+    ],
+  },
+  {
     ver: 'Ver.1.80.00', date: '2026-11-27', title: 'Drift Legends型ドリフト&GLB車のドレスアップ',
     items: [
       'ドリフトの動きをDrift Legendsと同じ車両モデルに(ハンドルの効き方、タイヤ特性、パワースライド、サイドブレーキ、アシスト)',

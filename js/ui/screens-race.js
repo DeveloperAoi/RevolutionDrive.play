@@ -98,7 +98,7 @@ UI.register({
         onSetting: (k, v) => { App.settings[k] = v; Save.touch('settings'); },
       });
       App.race = this.race;
-      const race = this.race; App.gfx.setView({ scene: race.scene, camera: race.camera, update: (dt) => { if (this.race === race) race.update(dt); } });
+      const race = this.race; App.gfx.setView({ vignette: 0.45, bloom: 0.5, scene: race.scene, camera: race.camera, update: (dt) => { if (this.race === race) race.update(dt); } });
       if (net) {
         this.race.msg('READY', 'small');
         net.on('closed', () => { if (this.race === race && race.state !== 'finish' && net.remoteFinish == null) { race.msg('相手が退出しました', 'small'); toast('対戦相手が退出しました — このまま走り切ると勝利です'); } });

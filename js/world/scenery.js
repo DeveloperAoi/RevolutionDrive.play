@@ -316,19 +316,30 @@ export function buildWorld(track, opts = {}) {
     trunks.push([x, y, z, s]); crowns.push([x, y, z, s, rr()]);
   }
   const trunkI = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.28, 3, 5), new THREE.MeshStandardMaterial({ color: 0x3a2a1c, roughness: 1 }), trunks.length);
-  const cg = new THREE.ConeGeometry(2.2, 6.5, 7); cg.translate(0, 5.6, 0);
-  const cg2 = new THREE.ConeGeometry(1.6, 4.5, 7); cg2.translate(0, 8.4, 0);
-  const crownGeo = mergeGeos([cg, cg2]);
-  const crownMat = new THREE.MeshStandardMaterial({ color: def.terrain === 'ridge' ? 0x3c5a2a : 0x1c3a20, roughness: 0.95, flatShading: true });
-  const crownI = new THREE.InstancedMesh(crownGeo, crownMat, crowns.length);
+  // foliage: crossed alpha-tested cards with painted leaves (cedar + broadleaf), tinted per instance
+  const cardGeo = (w, h, y0) => { const g1 = new THREE.PlaneGeometry(w, h); g1.translate(0, y0 + h / 2, 0); const g2 = g1.clone().rotateY(Math.PI / 2); const g3 = g1.clone().rotateY(Math.PI / 4); return mergeGeosUV([g1, g2, g3]); };
+  const kinds = [{ tex: TX.treeTexture('cedar'), geo: cardGeo(5.2, 11, 0.6) }, { tex: TX.treeTexture('broad'), geo: cardGeo(7.5, 8.5, 1.0) }];
+  const groups = [[], []];
+  crowns.forEach((t) => groups[def.terrain === 'autumn' ? (t[4] < 0.3 ? 0 : 1) : (t[4] < 0.62 ? 0 : 1)].push(t));
   const col = new THREE.Color();
   trunks.forEach((t, k) => { m4.compose(v3.set(t[0], t[1] + 1.5 * t[3], t[2]), q.identity(), sc.set(t[3], t[3], t[3])); trunkI.setMatrixAt(k, m4); });
-  crowns.forEach((t, k) => {
-    m4.compose(v3.set(t[0], t[1], t[2]), q.setFromAxisAngle(up, t[4] * 6), sc.set(t[3], t[3] * (0.9 + t[4] * 0.4), t[3])); crownI.setMatrixAt(k, m4);
-    lightAt(t[0], t[1] + 4, t[2], col); col.r = 0.55 + col.r * 0.8 + t[4] * 0.3; col.g = 0.55 + col.g * 0.8 + t[4] * 0.25; col.b = 0.5 + col.b * 0.6;
-    if (def.terrain === 'autumn') { const A = [[2.6, 0.55, 0.25], [2.8, 1.3, 0.3], [2.4, 1.9, 0.35], [1.0, 1.6, 0.6], [2.2, 0.35, 0.2]][Math.floor(t[4] * 5)]; col.r *= A[0] * 0.8; col.g *= A[1] * 0.8; col.b *= A[2]; }
-    crownI.setColorAt(k, col);
+  const crownMeshes = kinds.map((K, gi) => {
+    // unlit cards (crossed planes would show their dark back faces); light comes from time of day + baked lamps
+    const mat = new THREE.MeshBasicMaterial({ map: K.tex, alphaTest: 0.45, side: THREE.DoubleSide });
+    const mesh = new THREE.InstancedMesh(K.geo, mat, Math.max(1, groups[gi].length));
+    mesh.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: K.tex, alphaTest: 0.45 });
+    groups[gi].forEach((t, k) => {
+      m4.compose(v3.set(t[0], t[1], t[2]), q.setFromAxisAngle(up, t[4] * 6), sc.set(t[3], t[3] * (0.9 + t[4] * 0.4), t[3])); mesh.setMatrixAt(k, m4);
+      const dayF = (opts.time || def.time) === 'day' ? (wet ? 0.75 : 1.05) : (opts.time || def.time) === 'dusk' ? 0.55 : 0.13; const vr = 0.85 + t[4] * 0.3;
+      lightAt(t[0], t[1] + 4, t[2], col); col.setRGB((dayF + col.r * 0.7) * vr, (dayF + col.g * 0.7) * vr, (dayF * 0.95 + col.b * 0.5) * vr);
+      if (def.terrain === 'autumn' && gi === 1) { const A = [[2.0, 0.6, 0.35], [2.1, 1.25, 0.4], [1.9, 1.6, 0.45], [1.0, 1.25, 0.7], [1.9, 0.45, 0.3]][Math.floor(t[4] * 5)]; col.r *= A[0] * 0.75; col.g *= A[1] * 0.75; col.b *= A[2]; }
+      if (def.terrain === 'ridge') col.g *= 1.1;
+      mesh.setColorAt(k, col);
+    });
+    if (!groups[gi].length) mesh.count = 0;
+    mesh.castShadow = true; mesh.receiveShadow = false; return mesh;
   });
+  const crownI = crownMeshes[0]; root.add(crownMeshes[1]);
   sc.set(1, 1, 1);
   trunkI.castShadow = crownI.castShadow = true;
   root.add(trunkI, crownI);
@@ -545,7 +556,7 @@ export function buildWorld(track, opts = {}) {
   moonL.shadow.bias = -0.0004; moonL.shadow.normalBias = 0.04;
   moonL.shadow.intensity = T === 'night' ? 0.55 : 1;
   root.add(hemi, moonL, moonL.target);
-  root.traverse(o => { if (o.isMesh || o.isInstancedMesh) { o.receiveShadow = true; } });
+  root.traverse(o => { if ((o.isMesh || o.isInstancedMesh) && !o.material.alphaTest) { o.receiveShadow = true; } });
   const shadowFollow = (p) => { moonL.target.position.copy(p); moonL.position.copy(p).addScaledVector(sunDir, 160); };
 
   // ---- rain -------------------------------------------------------------
@@ -585,6 +596,18 @@ export function noise2(x, y) {
   const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
   const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
   return (a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v) * 2 - 1;
+}
+export function mergeGeosUV(geos) {
+  const pos = [], nor = [], uv = [], idx = []; let off = 0;
+  for (const g of geos) {
+    const p = g.attributes.position, n = g.attributes.normal, u = g.attributes.uv;
+    for (let i = 0; i < p.count; i++) { pos.push(p.getX(i), p.getY(i), p.getZ(i)); nor.push(0, 1, 0); uv.push(u.getX(i), u.getY(i)); }
+    for (let i = 0; i < g.index.count; i++) idx.push(g.index.getX(i) + off);
+    off += p.count; void n;
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); out.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  out.setIndex(idx); return out;
 }
 export function mergeGeos(geos) {
   const pos = [], nor = [], idx = []; let off = 0;
