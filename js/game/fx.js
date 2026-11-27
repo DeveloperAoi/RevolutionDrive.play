@@ -1,5 +1,6 @@
 // REVOLUTION DRIVE — race effects: tyre smoke + skid marks
 import * as THREE from 'three';
+import { disposeObject } from '../core/dispose.js';
 
 function smokeTexture() {
   const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
@@ -85,5 +86,5 @@ export class RaceFX {
     }
     const ga = this.points.geometry.attributes; ga.position.needsUpdate = true; ga.size.needsUpdate = true; ga.alpha.needsUpdate = true;
   }
-  dispose() { this.scene.remove(this.points, this.skids); this.points.geometry.dispose(); this.skids.geometry.dispose(); }
+  dispose() { this.scene.remove(this.points, this.skids); disposeObject(this.points); disposeObject(this.skids); }
 }

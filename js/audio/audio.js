@@ -44,7 +44,7 @@ class AudioSys {
     const o = this.ctx.createOscillator(), a = this.ctx.createGain();
     o.type = type; o.frequency.setValueAtTime(f, t);
     a.gain.setValueAtTime(g, t); a.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(a).connect(this.sfx); o.start(t); o.stop(t + dur + 0.02);
+    o.connect(a).connect(this.sfx); o.start(t); o.stop(t + dur + 0.02); autoFree(o, [a]);
   }
   ui(kind) {
     if (!this.ctx) return;
@@ -67,7 +67,7 @@ class AudioSys {
     a.gain.setValueAtTime(0.0001, t); a.gain.exponentialRampToValueAtTime(g, t + 0.006); a.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     let node = o.connect(a);
     if (pan && c.createStereoPanner) { const pn = c.createStereoPanner(); pn.pan.value = pan; node = node.connect(pn); }
-    node.connect(bus); o.start(t); o.stop(t + dur + 0.03);
+    node.connect(bus); o.start(t); o.stop(t + dur + 0.03); autoFree(o, [a, node]);
   }
   guideSE(kind, dir = 0) {
     if (!this.ctx || !(this.vol.guide > 0)) return;
@@ -93,7 +93,7 @@ class AudioSys {
     const t = this.ctx.currentTime; const s = this.noise(); const f = this.ctx.createBiquadFilter(); const g = this.ctx.createGain();
     f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(4000, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25, t + dur * 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(f).connect(g).connect(this.sfx); s.start(t); s.stop(t + dur + 0.05);
+    s.connect(f).connect(g).connect(this.sfx); s.start(t); s.stop(t + dur + 0.05); autoFree(s, [f, g]);
   }
   crash(impact) {
     if (!this.ctx) return;
@@ -101,26 +101,26 @@ class AudioSys {
     const s = this.noise(); const f = this.ctx.createBiquadFilter(); const g = this.ctx.createGain();
     f.type = 'lowpass'; f.frequency.value = 900 + v * 2500;
     g.gain.setValueAtTime(0.5 * v + 0.1, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35 + v * 0.3);
-    s.connect(f).connect(g).connect(this.sfx); s.start(t, Math.random()); s.stop(t + 0.8);
+    s.connect(f).connect(g).connect(this.sfx); s.start(t, Math.random()); s.stop(t + 0.8); autoFree(s, [f, g]);
     const o = this.ctx.createOscillator(), og = this.ctx.createGain(); o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(35, t + 0.2);
-    og.gain.setValueAtTime(0.6 * v, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.25); o.connect(og).connect(this.sfx); o.start(t); o.stop(t + 0.3);
+    og.gain.setValueAtTime(0.6 * v, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.25); o.connect(og).connect(this.sfx); o.start(t); o.stop(t + 0.3); autoFree(o, [og]);
     // metallic scrape ring
     const r = this.ctx.createOscillator(), rg = this.ctx.createGain(); r.type = 'triangle'; r.frequency.value = 1800 + Math.random() * 900;
-    rg.gain.setValueAtTime(0.06 * v, t); rg.gain.exponentialRampToValueAtTime(0.0001, t + 0.5); r.connect(rg).connect(this.sfx); r.start(t); r.stop(t + 0.55);
+    rg.gain.setValueAtTime(0.06 * v, t); rg.gain.exponentialRampToValueAtTime(0.0001, t + 0.5); r.connect(rg).connect(this.sfx); r.start(t); r.stop(t + 0.55); autoFree(r, [rg]);
   }
   shiftClunk() {
     if (!this.ctx) return;
     const t = this.ctx.currentTime; const s = this.noise(); const f = this.ctx.createBiquadFilter(); const g = this.ctx.createGain();
     f.type = 'bandpass'; f.frequency.value = 600; f.Q.value = 2;
     g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
-    s.connect(f).connect(g).connect(this.sfx); s.start(t, Math.random()); s.stop(t + 0.1);
+    s.connect(f).connect(g).connect(this.sfx); s.start(t, Math.random()); s.stop(t + 0.1); autoFree(s, [f, g]);
   }
   blowOff(amt = 1) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime; const s = this.noise(); const f = this.ctx.createBiquadFilter(); const g = this.ctx.createGain();
     f.type = 'bandpass'; f.Q.value = 3; f.frequency.setValueAtTime(3200, t); f.frequency.exponentialRampToValueAtTime(900, t + 0.35);
     g.gain.setValueAtTime(0.22 * amt, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
-    s.connect(f).connect(g).connect(this.sfx); s.start(t, Math.random()); s.stop(t + 0.45);
+    s.connect(f).connect(g).connect(this.sfx); s.start(t, Math.random()); s.stop(t + 0.45); autoFree(s, [f, g]);
   }
 
   // ---- engine -------------------------------------------------------------
@@ -283,6 +283,7 @@ class Sequencer {
   }
   tick() {
     const ctx = this.sys.ctx;
+    if (this.next < ctx.currentTime - 0.2) this.next = ctx.currentTime + 0.05; // timer was throttled (background tab / long load): skip, don't schedule the whole backlog at once
     while (this.next < ctx.currentTime + 0.12) { this.play(this.step, this.next); this.step++; this.next += this.spb; }
   }
   play(step, t) {
@@ -305,17 +306,22 @@ class Sequencer {
     }
   }
   env(g, t, a, peak, dur) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
-  kick(t) { const c = this.sys.ctx, o = c.createOscillator(), g = c.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12); this.env(g, t, 0.002, 0.9, 0.25); o.connect(g).connect(this.out); o.start(t); o.stop(t + 0.3); }
-  snare(t) { const c = this.sys.ctx, s = this.sys.noise(), f = c.createBiquadFilter(), g = c.createGain(); f.type = 'highpass'; f.frequency.value = 1500; this.env(g, t, 0.002, 0.35, 0.18); s.connect(f).connect(g).connect(this.out); s.start(t, Math.random()); s.stop(t + 0.2); }
-  hat(t, v) { const c = this.sys.ctx, s = this.sys.noise(), f = c.createBiquadFilter(), g = c.createGain(); f.type = 'highpass'; f.frequency.value = 8000; this.env(g, t, 0.001, v, 0.05); s.connect(f).connect(g).connect(this.out); s.start(t, Math.random()); s.stop(t + 0.06); }
-  bass(fr, t, d) { const c = this.sys.ctx, o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain(); o.type = 'sawtooth'; o.frequency.value = fr; f.type = 'lowpass'; f.frequency.setValueAtTime(1400, t); f.frequency.exponentialRampToValueAtTime(200, t + d); this.env(g, t, 0.005, 0.32, d); o.connect(f).connect(g).connect(this.out); o.start(t); o.stop(t + d + 0.02); }
-  pad(fr, t, d) { const c = this.sys.ctx; const g = c.createGain(); const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1800; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.035, t + 0.4); g.gain.setValueAtTime(0.035, t + d - 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + d); f.connect(g).connect(this.out); for (const dt of [-8, 8]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.detune.value = dt; o.connect(f); o.start(t); o.stop(t + d + 0.05); } }
-  stab(fr, t) { const c = this.sys.ctx; const g = c.createGain(); const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(4000, t); f.frequency.exponentialRampToValueAtTime(600, t + 0.2); this.env(g, t, 0.003, 0.06, 0.22); f.connect(g).connect(this.out); for (const dt of [-14, 0, 14]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.detune.value = dt; o.connect(f); o.start(t); o.stop(t + 0.25); } }
-  lead(fr, t, d, v) { const c = this.sys.ctx, o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(); o.type = 'square'; o2.type = 'sawtooth'; o.frequency.value = fr; o2.frequency.value = fr * 1.003; this.env(g, t, 0.01, v, d); o.connect(g); o2.connect(g); g.connect(this.out); o.start(t); o2.start(t); o.stop(t + d + 0.02); o2.stop(t + d + 0.02); }
+  kick(t) { const c = this.sys.ctx, o = c.createOscillator(), g = c.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12); this.env(g, t, 0.002, 0.9, 0.25); o.connect(g).connect(this.out); o.start(t); o.stop(t + 0.3); autoFree(o, [g]); }
+  snare(t) { const c = this.sys.ctx, s = this.sys.noise(), f = c.createBiquadFilter(), g = c.createGain(); f.type = 'highpass'; f.frequency.value = 1500; this.env(g, t, 0.002, 0.35, 0.18); s.connect(f).connect(g).connect(this.out); s.start(t, Math.random()); s.stop(t + 0.2); autoFree(s, [f, g]); }
+  hat(t, v) { const c = this.sys.ctx, s = this.sys.noise(), f = c.createBiquadFilter(), g = c.createGain(); f.type = 'highpass'; f.frequency.value = 8000; this.env(g, t, 0.001, v, 0.05); s.connect(f).connect(g).connect(this.out); s.start(t, Math.random()); s.stop(t + 0.06); autoFree(s, [f, g]); }
+  bass(fr, t, d) { const c = this.sys.ctx, o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain(); o.type = 'sawtooth'; o.frequency.value = fr; f.type = 'lowpass'; f.frequency.setValueAtTime(1400, t); f.frequency.exponentialRampToValueAtTime(200, t + d); this.env(g, t, 0.005, 0.32, d); o.connect(f).connect(g).connect(this.out); o.start(t); o.stop(t + d + 0.02); autoFree(o, [f, g]); }
+  pad(fr, t, d) { const c = this.sys.ctx; const g = c.createGain(); const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1800; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.035, t + 0.4); g.gain.setValueAtTime(0.035, t + d - 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + d); f.connect(g).connect(this.out); const os = []; for (const dt of [-8, 8]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.detune.value = dt; o.connect(f); o.start(t); o.stop(t + d + 0.05); os.push(o); } autoFree(os, [f, g]); }
+  stab(fr, t) { const c = this.sys.ctx; const g = c.createGain(); const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(4000, t); f.frequency.exponentialRampToValueAtTime(600, t + 0.2); this.env(g, t, 0.003, 0.06, 0.22); f.connect(g).connect(this.out); const os = []; for (const dt of [-14, 0, 14]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.detune.value = dt; o.connect(f); o.start(t); o.stop(t + 0.25); os.push(o); } autoFree(os, [f, g]); }
+  lead(fr, t, d, v) { const c = this.sys.ctx, o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(); o.type = 'square'; o2.type = 'sawtooth'; o.frequency.value = fr; o2.frequency.value = fr * 1.003; this.env(g, t, 0.01, v, d); o.connect(g); o2.connect(g); g.connect(this.out); o.start(t); o2.start(t); o.stop(t + d + 0.02); o2.stop(t + d + 0.02); autoFree([o, o2], [g]); }
   stop(fade) { const c = this.sys.ctx; this.out.gain.setTargetAtTime(0, c.currentTime, fade / 3); clearInterval(this.timer); setTimeout(() => this.out.disconnect(), fade * 1000 + 200); }
 }
 
 function hashStr(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+// free one-shot voices once they finish (Safari keeps finished-but-connected nodes alive → memory grows → tab crash)
+function autoFree(srcs, nodes) {
+  srcs = [].concat(srcs); let left = srcs.length;
+  for (const s of srcs) s.onended = () => { try { s.disconnect(); } catch { } if (--left <= 0) for (const n of nodes) { try { n.disconnect(); } catch { } } };
+}
 export function layoutOf(spec) {
   const t = spec.engine.type;
   if (t === 'ROTARY') return 'ROTARY';

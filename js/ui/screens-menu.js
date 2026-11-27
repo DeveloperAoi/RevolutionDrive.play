@@ -1,5 +1,6 @@
 // Menus: MODE SELECT, CAR SELECT / registration, DRESS UP, GARAGE, TUNING, COURSE SELECT, SPECIAL, SETTINGS, PROFILE
 import * as THREE from 'three';
+import { OutputPass } from '../../lib/jsm/postprocessing/OutputPass.js';
 import { UI, Focus, $, $$, el, esc, dialog, toast, sleep, startTimer, stopTimer, playerPlate, consolePlate, footer, rankBadge, avatarSVG } from './core.js';
 import { App } from '../app.js';
 import { Input } from '../core/input.js';
@@ -19,25 +20,45 @@ export const statBars = (st, cmp) => `<div class="specs">${[['POWER', 'power'], 
 export const tuneLevel = (gc) => { const n = tuneTotal(gc.tune); return n === 0 ? 'NORMAL' : n >= TUNE_PARTS_V2.length * 5 ? 'FULL TUNE' : `Tune Lv.${n}`; };
 export const makerLogo = (mk) => { const m = MAKERS[mk]; return `<div style="display:flex;align-items:center;gap:16px"><div style="width:64px;height:64px;border-radius:50%;border:5px solid ${m.color};display:grid;place-items:center;font-style:italic;font-size:30px;color:${m.color}">${m.name[0]}</div><div><div style="font-size:44px;font-style:italic;color:${m.color};letter-spacing:2px;line-height:44px">${m.name}</div><div style="font-family:var(--jp);font-weight:900;font-size:20px;color:#444">${m.jp}</div></div></div>`; };
 
-// thumbnails rendered once with a tiny offscreen renderer
+// thumbnails rendered once — with the main renderer into an offscreen target (a second WebGL context
+// would keep its own copy of every car model / texture and pushes iPhones/iPads over their memory limit)
 export const thumbCache = {};
 let thumbR = null;
+const TW = 400, TH = 225;
 export function carThumb(carId, dress = {}) {
   const m = carById(carId).model; const key = carId + JSON.stringify(dress) + (m && packReady(m.pack) ? ':glb' : ''); if (thumbCache[key]) return thumbCache[key];
+  let car = null;
+  const r = App.gfx && App.gfx.renderer; if (!r) return '';
+  const prevRT = r.getRenderTarget(), prevCol = r.getClearColor(new THREE.Color()), prevA = r.getClearAlpha(), prevShadow = r.shadowMap.enabled;
   try {
     if (!thumbR) {
-      thumbR = { r: new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }), scene: new THREE.Scene(), cam: new THREE.PerspectiveCamera(28, 16 / 9, 0.1, 100) };
-      thumbR.r.setSize(400, 225); thumbR.r.toneMapping = THREE.ACESFilmicToneMapping; thumbR.r.outputColorSpace = THREE.SRGBColorSpace;
+      thumbR = { scene: new THREE.Scene(), cam: new THREE.PerspectiveCamera(28, 16 / 9, 0.1, 100),
+        rt: new THREE.WebGLRenderTarget(TW, TH, { type: THREE.HalfFloatType, samples: 4 }), out: new THREE.WebGLRenderTarget(TW, TH),
+        pass: new OutputPass(), px: new Uint8Array(TW * TH * 4), cv: document.createElement('canvas') };
+      thumbR.cv.width = TW; thumbR.cv.height = TH;
       thumbR.scene.environment = App.gfx.env;
       thumbR.scene.add(new THREE.HemisphereLight(0xffffff, 0x333333, 1.4)); const d = new THREE.DirectionalLight(0xffffff, 2); d.position.set(3, 5, 4); thumbR.scene.add(d);
       thumbR.cam.position.set(3.9, 1.7, 4.9); thumbR.cam.lookAt(0, 0.45, 0);
     }
-    const car = createCar(buildSpec(carById(carId)), dress, {}); car.root.rotation.y = 0.5; car.showcase(0);
-    thumbR.scene.add(car.root); thumbR.r.render(thumbR.scene, thumbR.cam);
-    const url = thumbR.r.domElement.toDataURL('image/png');
-    thumbR.scene.remove(car.root); car.dispose();
-    return (thumbCache[key] = url);
+    car = createCar(buildSpec(carById(carId)), dress, {}); car.root.rotation.y = 0.5; car.showcase(0);
+    thumbR.scene.add(car.root);
+    r.shadowMap.enabled = false; r.setClearColor(0x000000, 0);
+    r.setRenderTarget(thumbR.rt); r.clear(); r.render(thumbR.scene, thumbR.cam);
+    thumbR.pass.render(r, thumbR.out, thumbR.rt); // tone mapping + sRGB like the screen
+    r.readRenderTargetPixels(thumbR.out, 0, 0, TW, TH, thumbR.px);
+    const g = thumbR.cv.getContext('2d'), img = g.createImageData(TW, TH), src = thumbR.px, dst = img.data;
+    for (let y = 0; y < TH; y++) { // flip vertically, un-premultiply alpha
+      let si = (TH - 1 - y) * TW * 4, di = y * TW * 4;
+      for (let x = 0; x < TW; x++, si += 4, di += 4) { const a = src[si + 3]; const k = a ? 255 / a : 0; dst[di] = Math.min(255, src[si] * k); dst[di + 1] = Math.min(255, src[si + 1] * k); dst[di + 2] = Math.min(255, src[si + 2] * k); dst[di + 3] = a; }
+    }
+    g.putImageData(img, 0, 0);
+    const ks = Object.keys(thumbCache); if (ks.length > 60) for (const k of ks.slice(0, ks.length - 60)) delete thumbCache[k]; // keep the cache bounded
+    return (thumbCache[key] = thumbR.cv.toDataURL('image/png'));
   } catch (e) { console.warn(e); return ''; }
+  finally {
+    r.setRenderTarget(prevRT); r.setClearColor(prevCol, prevA); r.shadowMap.enabled = prevShadow;
+    if (car) { thumbR.scene.remove(car.root); car.dispose(); }
+  }
 }
 
 // ───────────────────────── SPECIAL EVENTS ─────────────────────────

@@ -4,6 +4,7 @@
 //   wings: bottom of the mounts at the rear edge · canard: front edge centre · splitter: top front edge.
 // mountAero() scales a part to the car's width and bolts it on; it works for procedural and GLB cars.
 import * as THREE from 'three';
+import { share } from '../core/dispose.js';
 import { GLTFLoader } from '../../lib/jsm/loaders/GLTFLoader.js';
 
 const URL = 'assets/parts/aero_parts.glb';
@@ -12,10 +13,11 @@ const listeners = new Set();
 
 export function loadAeroParts() {
   if (loading) return loading;
-  carbonTex = new THREE.TextureLoader().load('assets/parts/carbon.png', (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; });
+  carbonTex = share(new THREE.TextureLoader().load('assets/parts/carbon.png', (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; }));
   carbonTex.wrapS = carbonTex.wrapT = THREE.RepeatWrapping; carbonTex.colorSpace = THREE.SRGBColorSpace;
   loading = new GLTFLoader().loadAsync(URL).then((g) => {
     parts = new Map();
+    g.scene.traverse((m) => { if (m.geometry) share(m.geometry); }); // shared by every car with the part
     for (const n of g.scene.children) {
       const box = new THREE.Box3().setFromObject(n);
       parts.set(n.name, { obj: n, size: box.getSize(new THREE.Vector3()) });

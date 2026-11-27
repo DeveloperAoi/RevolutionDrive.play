@@ -1,5 +1,6 @@
 // Renderer + reusable 3D "views" (showroom turntable, title scene)
 import * as THREE from 'three';
+import { share, disposeObject } from '../core/dispose.js';
 import { buildEnvMap, createCar } from '../world/carModel.js';
 import { Track } from '../world/track.js';
 import { buildWorld } from '../world/scenery.js';
@@ -18,7 +19,7 @@ export class Gfx {
     r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.15;
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.env = buildEnvMap(r);
+    this.env = share(buildEnvMap(r));
     this.view = null;
     this.quality = 1;
     // post processing: bloom on lamps / headlights / sun, then tone mapping + sRGB in the output pass
@@ -237,7 +238,7 @@ export class CoursePreview {
       const scene = new THREE.Scene(); scene.add(world.root); scene.fog = world.fog;
       e = { track, world, scene };
       this.cache.set(key, e);
-      if (this.cache.size > 3) { const [k0, old] = this.cache.entries().next().value; this.cache.delete(k0); old.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+      if (this.cache.size > 3) { const [k0, old] = this.cache.entries().next().value; this.cache.delete(k0); disposeObject(old.scene); }
     }
     this.e = e; this.scene = e.scene; this.s = 30;
   }

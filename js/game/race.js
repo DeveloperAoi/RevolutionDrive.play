@@ -1,5 +1,6 @@
 // REVOLUTION DRIVE — race session: world, cars, physics loop, rules, camera, ghost, HUD
 import * as THREE from 'three';
+import { disposeObject } from '../core/dispose.js';
 import { RaceFX } from './fx.js';
 import { Track } from '../world/track.js';
 import { buildWorld } from '../world/scenery.js';
@@ -525,7 +526,7 @@ export class Race {
   dispose() {
     this.disposed = true; if (this.fx) this.fx.dispose();
     for (const c of this.cars) { c.engine && c.engine.stop(); c.model.dispose(); }
-    this.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); } });
+    disposeObject(this.scene); // geometries, materials and per-race textures (signs, banners, sky…)
   }
 }
 

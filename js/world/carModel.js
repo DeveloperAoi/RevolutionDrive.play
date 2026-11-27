@@ -2,6 +2,7 @@
 // Bodies are extruded from side profiles with real wheel-arch cut-outs, and every
 // dress-up option (paint, wheels, aero parts from the model pack, muffler) changes the actual geometry.
 import * as THREE from 'three';
+import { share, unshare, disposeObject } from '../core/dispose.js';
 import { MUFFLERS, RIDE_HEIGHTS } from '../data/cars.js';
 import { WHEEL_DESIGNS, normalizeCar } from '../data/custom.js';
 import * as TX from './textures.js';
@@ -243,9 +244,9 @@ export function wheelBuild(cfg, R, W, tireLook = 'normal') {
 }
 
 // ---- vinyl textures -------------------------------------------------------------
-const vinylCache = {};
+const vinylCache = new Map(); // small LRU: evicted textures are freed (1024×512 each)
 function vinylTexture(kind, color, text) {
-  const key = kind + color + text; if (vinylCache[key]) return vinylCache[key];
+  const key = kind + color + text; if (vinylCache.has(key)) { const v = vinylCache.get(key); vinylCache.delete(key); vinylCache.set(key, v); return v; }
   const c = document.createElement('canvas'); c.width = 1024; c.height = 512; const g = c.getContext('2d');
   g.clearRect(0, 0, 1024, 512); g.fillStyle = color; g.strokeStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle';
   if (kind === 'flame') {
@@ -271,8 +272,10 @@ function vinylTexture(kind, color, text) {
   } else if (kind === 'text') {
     g.font = 'italic 900 150px "Arial Black", Impact, sans-serif'; g.fillText(String(text || 'TEAM').slice(0, 10), 512, 256);
   }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-  return (vinylCache[key] = t);
+  const t = share(new THREE.CanvasTexture(c)); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  vinylCache.set(key, t);
+  while (vinylCache.size > 8) { const [k0, old] = vinylCache.entries().next().value; vinylCache.delete(k0); unshare(old); old.dispose(); }
+  return t;
 }
 const decalMat = (tex) => new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.35, metalness: 0.1, polygonOffset: true, polygonOffsetFactor: -6, depthWrite: false });
 
@@ -536,6 +539,6 @@ export function createCar(spec, dressIn = {}, opts = {}) {
       for (const w of wheels) { w.spin.rotation.x = w.front ? (v.wheelRotF ?? v.wheelRot) : (v.wheelRotR ?? v.wheelRot); if (w.front) w.steer.rotation.y = v.steer; }
     },
     showcase(t, spinWheels = false) { body.position.y = -drop; body.rotation.set(0, 0, 0); for (const w of wheels) { w.spin.rotation.x = spinWheels ? t * 6 : 0; w.steer.rotation.y = w.front ? Math.sin(t * 0.5) * 0.25 : 0; } },
-    dispose() { root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); },
+    dispose() { disposeObject(root); },
   };
 }

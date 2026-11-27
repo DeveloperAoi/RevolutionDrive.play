@@ -1,10 +1,11 @@
 // Procedural canvas textures (all original, generated at runtime)
 import * as THREE from 'three';
+import { share } from '../core/dispose.js';
 
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
 function rand(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
 
-const cache = {};
+const cache = new Proxy({}, { set(o, k, v) { o[k] = share(v); return true; } }); // cached textures are shared → never freed
 function tex(c, repeat = true, aniso = 8) {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;

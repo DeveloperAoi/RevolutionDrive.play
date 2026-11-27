@@ -4,6 +4,7 @@
 // wheels (split automatically when a pack merges all tyres/rims into one mesh), ride height,
 // brake lights, headlights and ghost mode. Packs are registered in js/data/glbcars.js.
 import * as THREE from 'three';
+import { disposeObject } from '../core/dispose.js';
 import { GLTFLoader } from '../../lib/jsm/loaders/GLTFLoader.js';
 import { getEnvMap, paintMaterial, wheelBuild } from './carModel.js';
 import { RIDE_HEIGHTS } from '../data/cars.js';
@@ -147,7 +148,7 @@ export function createGlbCar(spec, dress, opts = {}) {
   for (const w of wheels) {
     const cfg = (w.front ? W2.f : W2.r);
     if (!cfg || !cfg.design || cfg.design === 'stock5') continue;
-    while (w.spin.children.length) { const c = w.spin.children[0]; w.spin.remove(c); c.geometry && c.geometry.dispose(); }
+    while (w.spin.children.length) { const c = w.spin.children[0]; w.spin.remove(c); disposeObject(c); }
     const nw = wheelBuild(cfg, R, TW, W2.tire); if (w.side < 0) nw.group.rotation.y = Math.PI; w.spin.add(nw.group);
   }
   const A = dress.aero || {};
@@ -197,6 +198,6 @@ export function createGlbCar(spec, dress, opts = {}) {
       for (const w of wheels) { w.spin.rotation.x = w.front ? (v.wheelRotF ?? v.wheelRot) : (v.wheelRotR ?? v.wheelRot); if (w.front) w.steer.rotation.y = v.steer; }
     },
     showcase(t, spinWheels = false) { body.position.y = -drop; body.rotation.set(0, 0, 0); for (const w of wheels) { w.spin.rotation.x = spinWheels ? t * 6 : 0; w.steer.rotation.y = w.front ? Math.sin(t * 0.5) * 0.25 : 0; } },
-    dispose() { root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); },
+    dispose() { disposeObject(root); },
   };
 }

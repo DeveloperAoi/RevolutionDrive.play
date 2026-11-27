@@ -3,6 +3,7 @@
 // tyre radius to 1, materials "tire" and "rim". Loaded in the background after start-up; until it is
 // ready cars show the built-in procedural wheel, then the screen redraws.
 import * as THREE from 'three';
+import { share } from '../core/dispose.js';
 import { GLTFLoader } from '../../lib/jsm/loaders/GLTFLoader.js';
 
 const URL = 'assets/parts/wheel_pack.glb';
@@ -11,6 +12,7 @@ export function loadWheelPack() {
   if (loading) return loading;
   loading = new GLTFLoader().loadAsync(URL).then((g) => {
     nodes = new Map(); for (const n of g.scene.children) nodes.set(n.name, n);
+    g.scene.traverse((m) => { if (m.geometry) share(m.geometry); }); // geometry is shared by every car that uses the wheel
     listeners.forEach(f => { try { f(); } catch (e) { console.warn(e); } });
   }).catch((e) => { console.warn('[wheels] pack failed', e); loading = null; });
   return loading;
