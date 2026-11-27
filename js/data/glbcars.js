@@ -8,6 +8,7 @@ import { loadPack } from '../world/glbCar.js';
 
 export const PACKS = [
   { id: 'lowpoly', url: 'assets/cars/lowpoly_car_pack.glb', credit: '"Ultimate Low-Poly Car Pack" by ProbablyNotG (https://sketchfab.com/mr_c0neDude) — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)' },
+  { id: 'kaze', url: 'assets/cars/kaze_rs.glb', credit: 'KAZE RS model: based on "Toyota Corolla AE86 Trueno" by Lexyc16 (https://sketchfab.com/Lexyc16) — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Modified: maker lettering, number plate and door decal removed.' },
 ];
 
 export function preloadPacks() {

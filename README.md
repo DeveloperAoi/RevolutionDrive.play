@@ -93,5 +93,6 @@ docs/DESIGN.md        設計書
 
 ## クレジット
 - 3D car models: "Ultimate Low-Poly Car Pack" by ProbablyNotG (https://sketchfab.com/mr_c0neDude) — [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Source: https://sketchfab.com/3d-models/ultimate-low-poly-car-pack-fadf9f031dbc4da384dc2593394f81dd (ゲーム内の車名・性能は架空のものです)
+- KAZE RS model: based on "Toyota Corolla AE86 Trueno" by Lexyc16 (https://sketchfab.com/Lexyc16) — [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Source: https://sketchfab.com/3d-models/toyota-corolla-ae86-trueno-fe02fba6302e450ea8424591493341ea. Modified: maker lettering, number plate and door decal removed; pop-up lamps animated in-game.
 - Aero parts (rear wings, front splitter, canards, carbon texture): parts model packs supplied by the project owner (Roblox Studio exports), converted to `assets/parts/aero_parts.glb`.
 - Wheels & tyres: "Wheel, Tire Pack" model pack supplied by the project owner (Roblox Studio export), converted to `assets/parts/wheel_pack.glb`.

@@ -178,11 +178,38 @@ export function createGlbCar(spec, dress, opts = {}) {
   const tailFlares = [];
   for (const sd of [-1, 1]) { const f = new THREE.Sprite(tailFlareMat); f.position.set(sd * tW, tY, rearZ - 0.05); f.scale.set(0.7, 0.5, 1); body.add(f); tailFlares.push(f); }
 
+  // ---- pop-up headlamps (spec.body.head === 'popup'): animated units on the bonnet, hinged at their rear edge ----
+  const popups = []; let popAng = 0, popTarget = 0;
+  if (spec.body?.head === 'popup') {
+    const pz = frontZ - (m.popup?.back ?? 0.5), pzone = zone(pz - 0.05, pz + 0.25);
+    const lidMat = m.popup?.lid ? new THREE.MeshStandardMaterial({ color: m.popup.lid, roughness: 0.35, metalness: 0.3, envMap }) : paintMat;
+    const pw = 0.34, ph = 0.12, pd = 0.24, px = m.popup?.x ?? frontZone.xw * 0.6;
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff4dd, emissiveIntensity: 1.6, roughness: 0.1 });
+    const blackM = new THREE.MeshStandardMaterial({ color: 0x0b0b0c, roughness: 0.6 });
+    for (const sd of [-1, 1]) {
+      const hinge = new THREE.Group(); hinge.position.set(sd * px, pzone.ymax + 0.003, pz); body.add(hinge);
+      const unit = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, pd), lidMat); unit.position.set(0, -ph / 2, pd / 2); hinge.add(unit);
+      const bez = new THREE.Mesh(new THREE.BoxGeometry(pw - 0.02, 0.012, pd - 0.03), blackM); bez.position.set(0, -ph - 0.004, pd / 2); hinge.add(bez);
+      const lamp = new THREE.Mesh(new THREE.CircleGeometry(0.075, 18), lampMat); lamp.rotation.x = Math.PI / 2; lamp.position.set(0, -ph - 0.012, pd / 2); hinge.add(lamp);
+      unit.visible = bez.visible = lamp.visible = false; // hidden while closed: the model's own closed lids show
+      popups.push({ hinge, parts: [unit, bez, lamp] });
+    }
+  }
+  const animPop = (dt) => {
+    if (!popups.length || popAng === popTarget) return;
+    popAng += Math.sign(popTarget - popAng) * Math.min(Math.abs(popTarget - popAng), dt / 0.7);
+    const e = popAng * popAng * (3 - 2 * popAng);
+    for (const p of popups) { p.hinge.rotation.x = -e * Math.PI * 0.5; p.parts.forEach(o => o.visible = popAng > 0.02); }
+  };
+
   const drop = (RIDE_HEIGHTS.find(h => h.id === (dress.height || 0)) || RIDE_HEIGHTS[0]).drop;
   body.position.y = -drop;
+  if (popups.length && opts.headlights) { popTarget = 1; popAng = 0.999; animPop(1); }
 
   return {
     root, body, wheels, lights, paintMat, dims: { len, wid, hgt, R, fz, rz }, glb: true,
+    hasPopups: popups.length > 0,
+    setLights(on) { popTarget = on ? 1 : 0; },
     setBrake(v) { tailMat.emissiveIntensity = 0.9 + v * 3.5; tailFlareMat.opacity = 0.45 + v * 0.55; tailFlares.forEach(f => f.scale.set(0.7 + v * 0.8, 0.5 + v * 0.4, 1)); },
     setGhost() {
       const gh = (mt) => { const c = mt.clone(); c.transparent = true; c.opacity = 0.35; c.depthWrite = false; return c; };
@@ -196,8 +223,11 @@ export function createGlbCar(spec, dress, opts = {}) {
       body.rotation.x = v.pitch; body.rotation.z = v.roll;
       body.position.y = -drop - Math.abs(v.pitch) * 0.3;
       for (const w of wheels) { w.spin.rotation.x = w.front ? (v.wheelRotF ?? v.wheelRot) : (v.wheelRotR ?? v.wheelRot); if (w.front) w.steer.rotation.y = v.steer; }
+      animPop(1 / 60);
     },
-    showcase(t, spinWheels = false) { body.position.y = -drop; body.rotation.set(0, 0, 0); for (const w of wheels) { w.spin.rotation.x = spinWheels ? t * 6 : 0; w.steer.rotation.y = w.front ? Math.sin(t * 0.5) * 0.25 : 0; } },
+    showcase(t, spinWheels = false) { body.position.y = -drop; body.rotation.set(0, 0, 0);
+      if (popups.length) { popTarget = (t % 12) > 6 ? 1 : 0; animPop(1 / 60); } // showroom demo
+      for (const w of wheels) { w.spin.rotation.x = spinWheels ? t * 6 : 0; w.steer.rotation.y = w.front ? Math.sin(t * 0.5) * 0.25 : 0; } },
     dispose() { disposeObject(root); },
   };
 }
