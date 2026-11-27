@@ -96,3 +96,4 @@ docs/DESIGN.md        設計書
 - KAZE RS model: based on "Toyota Corolla AE86 Trueno" by Lexyc16 (https://sketchfab.com/Lexyc16) — [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Source: https://sketchfab.com/3d-models/toyota-corolla-ae86-trueno-fe02fba6302e450ea8424591493341ea. Modified: maker lettering, number plate and door decal removed; pop-up lamps animated in-game.
 - Aero parts (rear wings, front splitter, canards, carbon texture): parts model packs supplied by the project owner (Roblox Studio exports), converted to `assets/parts/aero_parts.glb`.
 - Wheels & tyres: "Wheel, Tire Pack" model pack supplied by the project owner (Roblox Studio export), converted to `assets/parts/wheel_pack.glb`.
+- Body kit (front/rear bumpers, bonnets, side skirts): 12 `bodyPart_*.glb` models supplied by the project owner (no licence/author metadata in the files), decimated and merged into `assets/parts/body_parts.glb`.

@@ -157,7 +157,12 @@ export function createGlbCar(spec, dress, opts = {}) {
   const zone = (zMin, zMax) => { let ymax = 0, ymin = 9, xw = 0; for (const p of bodyParts) { const a = p.geo.attributes.position; for (let i = 0; i < a.count; i += 3) { const z = a.getZ(i); if (z < zMin || z > zMax) continue; const y = a.getY(i); if (y > ymax) ymax = y; if (y < ymin) ymin = y; xw = Math.max(xw, Math.abs(a.getX(i))); } } return { ymax, ymin, xw }; };
   const rearZone = zone(all.min.z, all.min.z + 0.55), frontZone = zone(all.max.z - 0.45, all.max.z), midZone = zone(-0.8, 0.8);
   const fz0 = all.max.z, rz0 = all.min.z, groundY = Math.max(0.08, frontZone.ymin);
-  mountAero(body, A, { wid: Math.max(frontZone.xw, rearZone.xw) * 2, frontZ: fz0, rearZ: rz0, deckY: rearZone.ymax, noseY: groundY + 0.22, lipY: groundY + 0.02, paintMat, envMap });
+  // bonnet: rear edge ~28% of the length behind the nose; height/slope from mid-bonnet and front samples (not the screen base)
+  const hz0 = fz0 - Math.min(1.25, len * 0.28), hMidZ = (hz0 + fz0) / 2, hMid = zone(hMidZ - 0.06, hMidZ + 0.06), hFront = zone(fz0 - 0.3, fz0 - 0.18);
+  const hSlope = Math.atan2(hMid.ymax - hFront.ymax, Math.max(0.2, fz0 - 0.24 - hMidZ)), hZone = { ymax: hMid.ymax + Math.tan(hSlope) * (hMidZ - hz0) };
+  mountAero(body, A, { wid: Math.max(frontZone.xw, rearZone.xw) * 2, frontZ: fz0, rearZ: rz0, deckY: rearZone.ymax, noseY: groundY + 0.22, lipY: groundY + 0.02, paintMat, envMap, groundY: Math.max(0.06, frontZone.ymin),
+    hood: { z0: hz0, y: hZone.ymax, slope: hSlope },
+    side: { x: midZone.xw, z: (fz + rz) / 2, len: Math.max(0.6, Math.abs(fz - rz) - R * 2.3) } });
 
   // ---- shadow, lights, flares ----
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(wid * 1.25, len * 1.15), new THREE.MeshBasicMaterial({ map: TX.glowTexture('rgba(0,0,0,0.85)', 'rgba(0,0,0,0)'), transparent: true, depthWrite: false }));

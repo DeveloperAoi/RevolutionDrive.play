@@ -432,7 +432,7 @@ export function createCar(spec, dressIn = {}, opts = {}) {
 
   // ---- aero parts: model pack (wings / splitter / canards) — see js/world/aeroParts.js ----
   const add = (geo, mat, x, y, z, rx = 0, ry = 0, rzz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rzz); body.add(m); return m; };
-  add(new THREE.BoxGeometry(wid * 0.9, 0.08, 0.2), bk, 0, Y0 + 0.2 * hgt, rearZ + 0.08); // stock rear bumper lower
+  if (!(A.rbumper > 0)) add(new THREE.BoxGeometry(wid * 0.9, 0.08, 0.2), bk, 0, Y0 + 0.2 * hgt, rearZ + 0.08); // stock rear bumper lower
   const deckY = Y0 + prof.lower[3][1] * hgt, deckZ = rearZ + 0.22;
   const hoodX0 = prof.cabin[prof.cabin.length - 1][0] + 0.03, hoodX1 = 0.45;
   const hz = ((hoodX0 + hoodX1) / 2) * len, hy = yAt((hoodX0 + hoodX1) / 2);
@@ -450,7 +450,8 @@ export function createCar(spec, dressIn = {}, opts = {}) {
     }
     for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.03, 0.06, len * 0.62), bm, sd * (wid / 2 + 0.006), Y0 + 0.38 * hgt, -0.02 * len);
   }
-  mountAero(body, A, { wid, frontZ, rearZ, deckY, noseY: Y0 + 0.16 + 0.12 * hgt, lipY: Y0 + 0.075, paintMat, envMap });
+  mountAero(body, A, { wid, frontZ, rearZ, deckY, noseY: Y0 + 0.16 + 0.12 * hgt, lipY: Y0 + 0.075, paintMat, envMap, groundY: Y0 + 0.03, bumpH: Math.max(0.2, 0.13 + 0.12 * hgt) * 1.25,
+    hood: { z0: hoodX0 * len, y: yAt(hoodX0), slope: hoodSlope }, side: { x: wid / 2, z: (fz + rz) / 2, len: Math.max(0.6, Math.abs(fz - rz) - R * 2.3) } });
   // muffler
   const mu = MUFFLERS.find(m => m.id === dress.muffler) || MUFFLERS[0];
   const tipR = mu.big ? 0.07 : 0.042;
