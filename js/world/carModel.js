@@ -29,7 +29,7 @@ const PROFILES = {
     cabin: [[-0.30, 0.62], [-0.18, 0.96], [0.10, 0.98], [0.30, 0.60]],
   },
   // ---- per-model silhouettes (index 3 of `lower` = rear deck, cabin = [rear base, roof rear, roof front, front base]) ----
-  retroHatch: { lower: [[-0.5, 0.30], [-0.5, 0.58], [-0.48, 0.64], [-0.30, 0.65], [0.30, 0.62], [0.47, 0.57], [0.5, 0.47], [0.5, 0.30]], cabin: [[-0.48, 0.63], [-0.43, 0.96], [0.06, 1.0], [0.28, 0.63]] },
+  retroHatch: { lower: [[-0.5, 0.30], [-0.5, 0.57], [-0.485, 0.635], [-0.40, 0.645], [0.28, 0.615], [0.44, 0.575], [0.49, 0.535], [0.5, 0.47], [0.5, 0.30]], cabin: [[-0.485, 0.63], [-0.22, 0.95], [0.05, 0.985], [0.27, 0.615]] }, // 80s 3-door hatch: wedge nose for pop-ups, flat roof, sloped glass hatch
   hotHatch: { lower: [[-0.5, 0.32], [-0.5, 0.60], [-0.47, 0.66], [-0.32, 0.67], [0.30, 0.60], [0.46, 0.50], [0.5, 0.42], [0.5, 0.30]], cabin: [[-0.46, 0.65], [-0.37, 0.98], [0.02, 1.0], [0.30, 0.60]] },
   curvyCoupe: { lower: [[-0.5, 0.33], [-0.5, 0.50], [-0.46, 0.60], [-0.30, 0.62], [-0.10, 0.58], [0.25, 0.52], [0.44, 0.42], [0.5, 0.36], [0.5, 0.30]], cabin: [[-0.33, 0.58], [-0.12, 0.93], [0.05, 0.95], [0.27, 0.53]] },
   gtCoupe: { lower: [[-0.5, 0.30], [-0.5, 0.58], [-0.48, 0.64], [-0.28, 0.65], [0.30, 0.60], [0.47, 0.54], [0.5, 0.44], [0.5, 0.30]], cabin: [[-0.33, 0.63], [-0.18, 0.97], [0.10, 0.99], [0.30, 0.60]] },
@@ -322,17 +322,25 @@ export function createCar(spec, dressIn = {}, opts = {}) {
   const tailMat = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0xff1010, emissiveIntensity: 0.9, roughness: 0.3 });
   const yH = Math.min(Y0 + 0.47 * hgt, Y0 + prof.lower[prof.lower.length - 1][1] * hgt - 0.075);
   const headStyle = b.head || 'rect', tailStyle = b.tail || 'bar';
+  const popups = []; let popAng = opts.headlights ? 1 : 0, popTarget = popAng; // 0 closed … 1 open
   const noseY = yAt(0.47), lightW = wid / 2 - 0.26;
   for (const sd of [-1, 1]) {
     // headlights
     if (headStyle === 'popup') {
-      // retractable lamps: closed panels in the showroom, raised pods with lamps when driving at night
-      const up = !!opts.headlights;
-      const pod = new THREE.Mesh(new THREE.BoxGeometry(0.34, up ? 0.16 : 0.03, 0.26), paintMat);
-      pod.position.set(sd * lightW, noseY + (up ? 0.08 : 0.01), frontZ - 0.32); pod.rotation.x = up ? 0 : -0.25; body.add(pod);
-      if (up) { const lm = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.11, 0.03), headMat); lm.position.set(sd * lightW, noseY + 0.09, frontZ - 0.18); body.add(lm); }
-      const turn = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.04), new THREE.MeshStandardMaterial({ color: 0xffaa22, emissive: 0x552200, roughness: 0.3 }));
-      turn.position.set(sd * (wid / 2 - 0.35), Y0 + 0.36 * hgt, frontZ + 0.01); body.add(turn);
+      // retractable (pop-up) headlamps: each unit hinges on its REAR edge; closed = painted lid flush with the bonnet,
+      // open = swung up ~90° so the lamp (on the unit's underside) faces forward and the lid faces up/back.
+      const zH = frontZ - 0.42, yH0 = yAt((frontZ - 0.42) / len) + 0.004;
+      const hinge = new THREE.Group(); hinge.position.set(sd * lightW, yH0, zH); body.add(hinge);
+      const pw = 0.36, ph = 0.13, pd = 0.25;
+      const unit = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, pd), paintMat); unit.position.set(0, -ph / 2, pd / 2); hinge.add(unit);
+      const bezel = new THREE.Mesh(new THREE.BoxGeometry(pw - 0.02, 0.012, pd - 0.03), bk); bezel.position.set(0, -ph - 0.004, pd / 2); hinge.add(bezel);
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(pw - 0.07, 0.01, pd - 0.08), headMat); lamp.position.set(0, -ph - 0.012, pd / 2); hinge.add(lamp);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.012, 6, 16), chromeMat()); ring.rotation.x = Math.PI / 2; ring.position.set(0, -ph - 0.014, pd / 2); hinge.add(ring);
+      popups.push(hinge);
+      // panel gap lines on the bonnet around each lid
+      const gap = new THREE.Mesh(new THREE.BoxGeometry(pw + 0.02, 0.004, pd + 0.02), new THREE.MeshBasicMaterial({ color: 0x0a0a0a })); gap.position.set(sd * lightW, yH0 - 0.004, zH + pd / 2); body.add(gap);
+      const turn = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 0.04), new THREE.MeshStandardMaterial({ color: 0xffaa22, emissive: 0x552200, roughness: 0.3 }));
+      turn.position.set(sd * (wid / 2 - 0.33), Y0 + 0.36 * hgt, frontZ + 0.03); body.add(turn);
     } else if (headStyle === 'round' || headStyle === 'oval') {
       for (const k of headStyle === 'round' ? [0, 1] : [0]) {
         const hl = new THREE.Mesh(new THREE.CylinderGeometry(headStyle === 'oval' ? 0.13 : 0.08, headStyle === 'oval' ? 0.13 : 0.08, 0.05, 18), headMat);
@@ -434,6 +442,14 @@ export function createCar(spec, dressIn = {}, opts = {}) {
   if (feat.includes('scoop')) { add(new THREE.BoxGeometry(wid * 0.26, 0.07, hoodL * 0.32), paintMat, 0, hy + 0.04, hz + 0.02, hoodSlope); add(new THREE.BoxGeometry(wid * 0.22, 0.05, 0.02), bk, 0, hy + 0.05, hz + hoodL * 0.16 + 0.01); }
   if (feat.includes('hoopwing') && !A.wing) { const ww = wid * 0.9; add(new THREE.BoxGeometry(ww, 0.03, 0.18), paintMat, 0, deckY + 0.2, deckZ + 0.02, 0.1); for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.05, 0.2, 0.14), paintMat, sd * ww / 2, deckY + 0.1, deckZ + 0.02); }
   if (feat.includes('wing') && !A.wing) { const ww = wid * 0.82; add(new THREE.BoxGeometry(ww, 0.03, 0.22), paintMat, 0, deckY + 0.16, deckZ, 0.14); for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.03, 0.16, 0.12), bk, sd * ww * 0.34, deckY + 0.08, deckZ); }
+  if (feat.includes('bumper80')) { // black wrap-around 80s bumpers + side protection moulding
+    const bm = new THREE.MeshStandardMaterial({ color: 0x18191b, roughness: 0.75, metalness: 0.05 });
+    for (const [z, sg] of [[frontZ - 0.05, 1], [rearZ + 0.05, -1]]) {
+      add(new THREE.BoxGeometry(wid * 0.9, 0.13, 0.16), bm, 0, Y0 + 0.24 * hgt, z);
+      for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.1, 0.13, 0.34), bm, sd * (wid / 2 - 0.08), Y0 + 0.24 * hgt, z - sg * 0.12);
+    }
+    for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.03, 0.06, len * 0.62), bm, sd * (wid / 2 + 0.006), Y0 + 0.38 * hgt, -0.02 * len);
+  }
   mountAero(body, A, { wid, frontZ, rearZ, deckY, noseY: Y0 + 0.16 + 0.12 * hgt, lipY: Y0 + 0.075, paintMat, envMap });
   // muffler
   const mu = MUFFLERS.find(m => m.id === dress.muffler) || MUFFLERS[0];
@@ -514,16 +530,28 @@ export function createCar(spec, dressIn = {}, opts = {}) {
     body.add(sl, sl.target); lights.push(sl);
   }
   const flareMat = new THREE.SpriteMaterial({ map: TX.glowTexture('rgba(255,255,250,1)', 'rgba(180,200,255,0)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
-  for (const sd of [-1, 1]) { const f = new THREE.Sprite(flareMat); f.position.set(sd * lightW, yH, frontZ + 0.05); f.scale.set(0.6, 0.6, 1); f.visible = !!(opts.headlights || opts.flares); body.add(f); }
+  const flareSprites = [];
+  for (const sd of [-1, 1]) { const f = new THREE.Sprite(flareMat); f.position.set(sd * lightW, popups.length ? yAt((frontZ - 0.3) / len) + 0.2 : yH, popups.length ? frontZ - 0.26 : frontZ + 0.05); f.scale.set(0.6, 0.6, 1); f.visible = popups.length ? popAng > 0.85 : !!(opts.headlights || opts.flares); body.add(f); flareSprites.push(f); }
   const tailFlareMat = new THREE.SpriteMaterial({ map: TX.glowTexture('rgba(255,60,40,1)', 'rgba(255,0,0,0)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: opts.headlights || opts.flares ? 0.6 : 0.15 });
   const tailFlares = [];
   for (const sd of [-1, 1]) { const f = new THREE.Sprite(tailFlareMat); f.position.set(sd * (wid / 2 - 0.27), Y0 + 0.54 * hgt, rearZ - 0.05); f.scale.set(0.7, 0.5, 1); body.add(f); tailFlares.push(f); }
 
+  const animPop = (dt) => { // ~0.7 s travel, eased like the real motor-driven units
+    if (!popups.length || popAng === popTarget) return;
+    popAng += Math.sign(popTarget - popAng) * Math.min(Math.abs(popTarget - popAng), dt / 0.7);
+    const e = popAng * popAng * (3 - 2 * popAng);
+    for (const h of popups) h.rotation.x = -e * Math.PI * 0.5;
+    for (const f of flareSprites) f.visible = popAng > 0.85 || !!opts.flares && !popups.length;
+    for (const l of lights) l.visible = popAng > 0.85;
+  };
+  for (const h of popups) h.rotation.x = -popAng * Math.PI * 0.5;
   const drop = (RIDE_HEIGHTS.find(h => h.id === (dress.height || 0)) || RIDE_HEIGHTS[0]).drop;
   body.position.y = -drop;
 
   return {
     root, body, wheels, lights, paintMat, dims: { len, wid, hgt, R, fz, rz },
+    hasPopups: popups.length > 0,
+    setLights(on) { popTarget = on ? 1 : 0; },
     setBrake(v) { tailMat.emissiveIntensity = 0.9 + v * 3.5; tailFlareMat.opacity = 0.45 + v * 0.55; tailFlares.forEach(f => f.scale.set(0.7 + v * 0.8, 0.5 + v * 0.4, 1)); },
     setGhost() {
       const gh = (mt) => { const c = mt.clone(); c.transparent = true; c.opacity = 0.35; c.depthWrite = false; return c; };
@@ -537,8 +565,11 @@ export function createCar(spec, dressIn = {}, opts = {}) {
       body.rotation.x = v.pitch; body.rotation.z = v.roll; // ay>0 (turning left) → right side dips (leans outward)
       body.position.y = -drop - Math.abs(v.pitch) * 0.3;
       for (const w of wheels) { w.spin.rotation.x = w.front ? (v.wheelRotF ?? v.wheelRot) : (v.wheelRotR ?? v.wheelRot); if (w.front) w.steer.rotation.y = v.steer; }
+      animPop(1 / 60);
     },
-    showcase(t, spinWheels = false) { body.position.y = -drop; body.rotation.set(0, 0, 0); for (const w of wheels) { w.spin.rotation.x = spinWheels ? t * 6 : 0; w.steer.rotation.y = w.front ? Math.sin(t * 0.5) * 0.25 : 0; } },
+    showcase(t, spinWheels = false) { body.position.y = -drop; body.rotation.set(0, 0, 0);
+      if (popups.length) { popTarget = (t % 12) > 6 ? 1 : 0; animPop(1 / 60); } // showroom demo: lamps open & close
+      for (const w of wheels) { w.spin.rotation.x = spinWheels ? t * 6 : 0; w.steer.rotation.y = w.front ? Math.sin(t * 0.5) * 0.25 : 0; } },
     dispose() { disposeObject(root); },
   };
 }

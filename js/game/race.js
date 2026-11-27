@@ -299,6 +299,11 @@ export class Race {
     for (const car of this.cars) {
       car.model.pose(car.veh, { y: car.surfY, pitch: car.pitch, roll: car.roll });
       car.model.setBrake(car.ctrl === 'player' && inp ? Math.max(inp.brake, car.veh.gear < 0 ? 0.5 : 0) : (car.veh.ax < -3 ? 1 : 0));
+      if (car.model.hasPopups) { // pop-up lamps: open at night / dusk / in tunnels; H toggles (double-tap = passing flash)
+        const dark = (this.cfg.time || this.def.time) !== 'day' || !!this.track.flags[car.hint]?.tunnel;
+        if (car.ctrl === 'player' && inp && inp.lights) { car.lightsManual = !(car.lightsManual ?? dark); inp.lights = false; }
+        car.model.setLights(car.ctrl === 'player' ? (car.lightsManual ?? dark) : dark);
+      }
       const dist = car === this.focus ? 0 : Math.hypot(car.veh.x - this.focus.veh.x, car.veh.z - this.focus.veh.z);
       if (car.engine) car.engine.update(car.veh, car.ctrl === 'player' && inp && running ? Math.max(inp.throttle, car.finished ? 0.3 : 0) : (car.ai || car.net ? 0.8 : 0), { dist, gravel: car.offroad });
     }

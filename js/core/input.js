@@ -84,6 +84,6 @@ export const Input = {
       if (Math.abs(pad.steer) > Math.abs(steer)) steer = Math.sign(pad.steer) * Math.pow(Math.abs(pad.steer), 1.4);
       throttle = Math.max(throttle, pad.throttle); brake = Math.max(brake, pad.brake); hb = hb || pad.hb; up = up || pad.up; down = down || pad.down;
     }
-    return { steer, throttle, brake, handbrake: !!hb, shiftUp: up, shiftDown: down, camera: this.edge('KeyC') || this.edge('TouchCam'), reset: this.edge('KeyR'), pause: this.edge('KeyP') || !!(pad && pad.pause) };
+    return { steer, throttle, brake, handbrake: !!hb, shiftUp: up, shiftDown: down, camera: this.edge('KeyC') || this.edge('TouchCam'), lights: this.edge('KeyH'), reset: this.edge('KeyR'), pause: this.edge('KeyP') || !!(pad && pad.pause) };
   },
 };

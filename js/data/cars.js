@@ -19,7 +19,7 @@ export const CARS = [
     id: 'kaze_rs', disp: 1587, category: 'LIGHTWEIGHT', catJp: 'ライトウェイト', maker: 'KAZEMOTO', name: 'KAZE RS', jp: 'カゼ RS', year: 1986, price: 0,
     desc: '軽さが武器の小型FRクーペ。非力だが、峠では誰よりも素直に曲がる。',
     drive: 'FR', mass: 950, wheelbase: 2.40, cgHeight: 0.48, weightFront: 0.53,
-    body: { len: 4.20, wid: 1.63, hgt: 1.33, style: 'hatch', shape: 'retroHatch', head: 'popup', tail: 'bar' },
+    body: { len: 4.20, wid: 1.63, hgt: 1.33, style: 'hatch', shape: 'retroHatch', head: 'popup', tail: 'bar', features: ['bumper80'] },
     engine: { type: 'NA4', cyl: 4, hp: 130, torque: 149, idle: 900, redline: 7600, limiter: 7800,
       curve: [[800, .55], [3000, .80], [5200, 1.0], [6600, .96], [7800, .78]], inertia: 1.0 },
     gears: [3.59, 2.02, 1.38, 1.00, 0.86], final: 4.30, reverse: 3.48,
