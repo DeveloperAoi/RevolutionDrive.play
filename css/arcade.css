@@ -910,3 +910,18 @@ body.compact .hw-spd b { font-size: 170px; }
 .pthumb span { font-size: 13px; letter-spacing: 2px; color: #777; font-style: italic; line-height: 1; }
 .pthumb b { font-family: var(--jp); font-size: 17px; font-weight: 900; color: #222; line-height: 1.15; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 96%; }
 #scr-store .pthumb { padding-bottom: 30px; } #scr-store .pthumb img { max-height: 62%; }
+/* vehicle debug display (F9 / ?debug) */
+.rd-debug { position: absolute; left: 24px; top: 300px; z-index: 60; display: flex; gap: 8px; pointer-events: none; }
+.rd-debug canvas { width: 330px; height: 330px; border: 1px solid rgba(255,255,255,.3); }
+.rd-debug pre { margin: 0; padding: 10px 14px; background: rgba(0,0,0,.72); color: #cfe; font: 20px/1.35 monospace; border: 1px solid rgba(255,255,255,.3); }
+/* developer menu */
+#scr-devmenu .dv-list { position: absolute; left: 560px; top: 140px; width: 1280px; display: flex; flex-direction: column; gap: 8px; z-index: 5; }
+#scr-devmenu .dv-row { display: grid; grid-template-columns: 420px 430px 1fr; align-items: center; gap: 16px; padding: 10px 24px; height: 52px; box-sizing: border-box; background: linear-gradient(90deg, rgba(20,22,28,.92), rgba(30,34,42,.82)); border-left: 6px solid #555; color: #eee; cursor: pointer; transform: skewX(-8deg); transition: transform .12s, border-color .12s, background .12s; }
+#scr-devmenu .dv-row > * { transform: skewX(8deg); }
+#scr-devmenu .dv-row b { font-family: var(--jp); font-size: 28px; font-weight: 900; }
+#scr-devmenu .dv-row span { font-size: 26px; font-style: italic; color: #ffd400; }
+#scr-devmenu .dv-row small { font-family: var(--jp); font-size: 18px; color: #9ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#scr-devmenu .dv-row.on { border-left-color: #ffd400; background: linear-gradient(90deg, rgba(120,80,0,.95), rgba(60,44,10,.9)); transform: skewX(-8deg) translateX(14px); }
+#scr-devmenu .dv-info { position: absolute; left: 600px; top: 760px; width: 1100px; padding: 12px 18px; background: rgba(255,255,255,.75); font-family: var(--jp); font-size: 20px; color: #333; z-index: 5; line-height: 1.5; }
+#scr-devmenu .dv-info b { display: block; font-size: 22px; }
+#scr-devmenu .dv-info code { background: #222; color: #ffd400; padding: 1px 6px; }

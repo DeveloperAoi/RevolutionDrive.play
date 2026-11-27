@@ -7,6 +7,7 @@ export const Input = {
   steerKb: 0, edges: new Set(), padPrev: {},
   init() {
     addEventListener('keydown', (e) => {
+      if (e.code === 'F9') { e.preventDefault(); import('../app.js').then(m => { m.App.debug = !m.App.debug; }); return; }
       if (this.textCapture && this.textCapture(e)) return;
       // focused buttons/links must not also fire a native click on Enter/Space (double activation)
       if (e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.target.blur(); }

@@ -256,7 +256,7 @@ export class Race {
           car.veh.vx = car.veh.vz = 0; car.veh.r = 0;
           continue;
         }
-        car.veh.step(DT, ctl, { driftAssist: car.ai ? 0.9 : (this.def.highway ? Math.min(this.assist, 0.35) : this.assist), autoGear: car.ai || car.finished ? true : this.autoGear, stable: car.ai ? 2.5 : 0, highway: !!this.def.highway, arcadeDrift: !car.ai && !car.finished && car.ctrl !== 'net' });
+        car.veh.step(DT, ctl, { driftAssist: car.ai ? 0.9 : (this.def.highway ? Math.min(this.assist, 0.35) : this.assist), autoGear: car.ai || car.finished ? true : this.autoGear, stable: car.ai ? 2.5 : 0, highway: !!this.def.highway });
         const pr = this.surface(car);
         this.progress(car, pr);
         for (const e of car.veh.events) {
@@ -448,11 +448,10 @@ export class Race {
     const car = this.focus, v = car.veh;
     if (this.attract) return this.cinematic(dt);
     if (this.state === 'finish' && this.clock - this.finishClock > 1.2) return this.cinematic(dt);
-    // follow the direction of travel (shows the drift angle), blended with heading
+    // Drift Legends chase camera (mode 0): follows the car's HEADING with a damped lag (rate 6), so the car
+    // stays pointed up the screen and the drift shows as the world sliding past — no swing toward the velocity.
     const spd = v.speed;
-    const velYaw = spd > 3 ? Math.atan2(v.vx, v.vz) : v.yaw;
-    let target = v.yaw + angleDiff(velYaw, v.yaw) * 0.55;
-    this.camYaw += angleDiff(target, this.camYaw) * Math.min(1, dt * 5.5);
+    this.camYaw += angleDiff(v.yaw, this.camYaw) * (1 - Math.exp(-6 * dt));
     const modes = [{ d: 6.4, h: 2.1, look: 1.0 }, { d: 9.5, h: 3.4, look: 1.2 }, { d: -0.5, h: 1.15, look: 1.1 }];
     const m = modes[this.camMode];
     const sy = Math.sin(this.camYaw), cy = Math.cos(this.camYaw);

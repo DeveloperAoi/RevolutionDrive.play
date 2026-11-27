@@ -8,6 +8,7 @@ import { Save } from '../core/save.js';
 import { carById } from '../data/cars.js';
 import { UPDATES, LATEST } from '../data/updates.js';
 import { LotScene } from '../game/gfx.js';
+import { devEnabled, devAllowed, setDevMode } from './screens-dev.js';
 
 // ---- card artwork (original vector illustrations) ------------------------------------------
 const ART = {
@@ -172,6 +173,7 @@ hubScreen({
     { glyph: 'settings', en: 'Config', jp: '設定', desc: '音量・トランスミッション・アシスト・カメラ・グラフィックなど。', go: () => UI.go('settings', { back: 'config' }) },
     { glyph: 'data', en: 'Play Data', jp: 'プレイデータ', desc: '戦績・記録・アカウント状態・クラウド同期。', go: () => { App.hubReturn = 'config'; UI.go('profile'); } },
     { glyph: 'news', en: 'Update Log', jp: 'アップデート履歴', badge: newsBadge(), desc: 'これまでのアップデート内容。', go: () => UI.go('news', { back: 'config' }) },
+    ...(devEnabled() ? [{ glyph: 'settings', en: 'Developer', jp: '開発者メニュー', desc: 'テスト用:クレジット・TP・CP追加、全パーツ・全コース・ストーリー解放、車の追加、車両デバッグ表示。', go: () => UI.go('devmenu') }] : []),
     { glyph: 'back', en: 'Back', jp: '前に戻る', go: () => UI.go('start', { index: 3 }) },
   ],
   back: () => UI.go('start', { index: 3 }),
@@ -198,6 +200,13 @@ UI.register({
     $$('.nw-vers .v', this.el).forEach(v => v.onclick = () => { this.i = +v.dataset.k; Audio.ui('move'); this.render(); });
     const u = UPDATES[this.i];
     $('.nw-body', this.el).innerHTML = `<div class="hd"><span>${u.ver}</span>${esc(u.title)}</div><div class="dt">${u.date} 公開 · 現在のバージョン ${VERSION}</div><ul>${u.items.map(x => `<li>${esc(x)}</li>`).join('')}</ul><div class="cr">CREDITS — 3D car models: "Ultimate Low-Poly Car Pack" by ProbablyNotG (sketchfab.com/mr_c0neDude), licensed under CC BY 4.0. Names and performance figures in this game are fictional.</div>`;
+    const vb = $('.nw-body .dt', this.el); if (vb) vb.onclick = () => {
+      this.devTaps = (this.devTaps || 0) + 1;
+      if (devEnabled()) { if (this.devTaps === 1) toast('開発者モードは有効です(CONFIG → 開発者メニュー)'); return; }
+      if (!devAllowed()) return;
+      if (this.devTaps >= 7) { setDevMode(true); Audio.ui('start'); toast('開発者モードを有効にしました — CONFIG に「開発者メニュー」が追加されました'); }
+      else if (this.devTaps >= 4) toast(`あと ${7 - this.devTaps} 回で開発者モード`);
+    };
   },
   onAction(a) {
     if (a === 'up' || a === 'down') { this.i = Math.max(0, Math.min(UPDATES.length - 1, this.i + (a === 'up' ? -1 : 1))); Audio.ui('move'); return this.render(); }

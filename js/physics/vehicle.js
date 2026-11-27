@@ -1,20 +1,56 @@
-// REVOLUTION DRIVE — vehicle dynamics v2 ("FIRST IGNITION")
-// Two-axle model with explicit WHEEL SPEED states:
-//  * each axle has an angular velocity ω; slip ratio κ = (ωR − u)/|u|
-//  * combined slip: normalised (κ/κ*, tanα/tanα*) → one friction curve, force split by direction
-//    (so wheelspin, lock-up and the handbrake all steal lateral grip *continuously*)
-//  * engine inertia is reflected through the gearbox onto the driven axle: wheelspin raises revs
-//  * longitudinal load transfer with chassis lag (brake → nose dives → rear goes light)
-//  * implicit wheel integration (stable at 120 Hz even at walking pace)
-// Conventions: world plane (x,z), y up. heading ψ: forward = (sinψ, cosψ).
-// body frame: u = forward speed, v = speed to the LEFT, r = dψ/dt (+ = turning left).
-
+// REVOLUTION DRIVE — vehicle dynamics: the Drift Legends vehicle controller
+// Chassis, tyres, steering, counter-steer assist, handbrake, load transfer and yaw are a line-by-line
+// port of Drift Legends' Vehicle.step (developeraoi/drift-legends · source/src/physics.js).
+// RD's own engine / turbo / gearbox model feeds the drive force exactly where DL's engine does.
+// Conventions (identical to DL): world plane (x,z), y up, forward = (sin yaw, cos yaw), right = (−cos yaw, sin yaw).
+//   DL keeps `heading` and a yaw rate r with heading −= r·dt (r > 0 = turning RIGHT).
+//   RD stores yaw = heading and this.r = dYaw/dt (+ = turning LEFT), i.e. this.r = −r_DL. Steering input + = right.
 const G = 9.81;
 const K_PEAK = 0.11;     // slip ratio at peak longitudinal force
 const A_PEAK = 0.13;     // slip angle (tan) at peak lateral force
 const C_SHAPE = 1.5;     // curve shape: sliding friction ≈ sin(C·π/2) ≈ 0.71 of peak
 const B_SHAPE = Math.tan(Math.PI / (2 * C_SHAPE)); // peak exactly at normalised slip 1
 const mf = (s) => Math.sin(C_SHAPE * Math.atan(B_SHAPE * s));
+
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
+const tireCurve = (alpha, B, C) => { const s = alpha < 0 ? -1 : 1; return s * Math.sin(C * Math.atan(B * Math.abs(alpha))); };
+
+// RD car spec → the parameter set DL's computeSpec produces (muF/muR, B/C slide curve, LSD, steering, transfer…)
+// RD cars have no "handling/drift" ratings, so the character comes from drivetrain, engine, weight and upgrades:
+//   FR: loose rear, LSD · rotary / high-power turbo: easier throttle slides · FF: front-led, open diff · 4WD: planted
+export function dlSpec(spec, a, b) {
+  const mass = spec.mass, drive = spec.drive, eng = spec.engine || {};
+  const rotary = eng.type === 'ROTARY' || spec.sound?.type === 'rotary';
+  const turbo = !!spec.sound?.turbo;
+  const pw = (eng.hp || 200) / mass * 1000; // hp per tonne
+  // "drift" rating 0..100 in DL terms
+  let drift = drive === 'FR' ? 82 : drive === '4WD' ? 62 : 50;
+  if (rotary) drift += 6; if (turbo && pw > 200) drift += 3; drift += clamp((1300 - mass) / 100, -4, 4);
+  const handling = clamp(70 + (spec.suspensionLevel || 0) * 4 + (1400 - mass) / 60 + (spec.downforce || 0) * 10, 40, 100);
+  const mu = spec.tire.grip;
+  const cam = Math.abs(-1.0 - (spec.setup?.camber || 0) * 0.6); // DL default camber −1.0°
+  const toeR = 0.1;                                            // DL default rear toe-in
+  const latCam = 1 + 0.022 * Math.min(cam, 2.5) - 0.035 * Math.max(0, cam - 2.5);
+  const lsd = clamp((drift >= 84 ? 0.45 : drive === 'FR' ? 0.45 : 0.22) + (spec.traction || 0) * 0.06, 0.15, 0.95);
+  const slide = clamp(0.72 + (drift - 70) / 100 * 0.08, 0.6, 0.92);
+  const C = 2 - 2 * Math.asin(slide) / Math.PI;
+  const B = Math.tan(Math.PI / (2 * C)) / 0.12;
+  const susp = spec.suspensionLevel || 0;
+  const df = spec.downforce || 0;
+  return {
+    mass, a, b, wb: spec.wheelbase, cgH: spec.cgHeight, I: mass * a * b * 1.05, drive,
+    driveR: drive === 'FF' ? 0 : drive === '4WD' ? 1 - (spec.split ?? 0.38) : 1,
+    muF: mu * latCam * (0.92 + handling / 100 * 0.12) * (1 + susp * 0.015),
+    muR: mu * latCam * (1.02 - drift / 100 * 0.06) * (1 + toeR * 0.15),
+    B, C, slide, lsd, lsd2way: false, hp: eng.hp || 200,
+    brakeMax: mass * 9.81 * 1.25 * (spec.brake || 1),
+    steerMax: (spec.steerLock || 0.6) * (spec.setup?.steerSens || 1), counterMax: 0.7,
+    transfer: 5 + susp * 2.5 + (spec.setup?.stiffness || 0) * 1.2, rollK: 1 / (1 + susp * 0.35),
+    roll: 12 + mass * 0.012, downF: df * 0.35, downR: df * 1.1, yawDamp: 0.1 + toeR * 0.4, drift, rotary, turbo,
+  };
+}
 
 export class Vehicle {
   constructor(spec) { this.setSpec(spec); this.reset(0, 0, 0, 0); }
@@ -32,6 +68,7 @@ export class Vehicle {
     this.Iw = 2.6;                                  // two wheels + hubs, per axle (kg m²)
     this.Ie = 0.11 * (spec.engine.inertia || 1);     // crank + flywheel
     this.cda = 0.5 * 1.225 * (spec.cda || 0.68);
+    this.dl = dlSpec(spec, this.a, this.b);
   }
 
   reset(x, y, z, yaw) {
@@ -41,10 +78,8 @@ export class Vehicle {
     this.pitch = 0; this.roll = 0; this.pitchV = 0; this.rollV = 0;
     this.slipFront = 0; this.slipRear = 0; this.wheelspin = 0; this.lockup = 0;
     this.driftAngle = 0; this.wheelRot = 0; this.wheelRotF = 0; this.wheelRotR = 0; this.limiterHit = 0;
-    this.surfaceGrip = 1; this.dState = false; this.dDir = 0; this.dExit = 0; this.dTime = 0; this.events = []; this.throttleIn = 0; this.load = 0; this.decel = 0;
+    this.surfaceGrip = 1; this.steerIn = 0; this.delta = 0; this.beta = 0; this.axF = 0; this.axDL = 0; this.spinF = 0; this.spinR = 0; this.handOn = 0; this.events = []; this.throttleIn = 0; this.load = 0; this.decel = 0;
   }
-
-  enterDrift(dir) { this.dState = true; this.dDir = dir; this.dExit = 0; this.dTime = 0; }
 
   get speed() { return Math.hypot(this.vx, this.vz); }
   get kmh() { return this.speed * 3.6; }
@@ -71,40 +106,40 @@ export class Vehicle {
   }
 
   step(dt, input, opts = {}) {
-    const s = this.spec, e = s.engine, m = s.mass, L = s.wheelbase, R = s.tire.radius;
+    const s = this.spec, e = s.engine, m = s.mass, R = s.tire.radius;
     const assist = opts.driftAssist ?? 0.6;
     const auto = opts.autoGear ?? true;
-    const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
-    let u = this.vx * sy + this.vz * cy;
-    let v = this.vx * cy - this.vz * sy;
-    const speed = Math.hypot(u, v);
-    const beta = speed > 3 ? Math.atan2(v, Math.abs(u)) : 0;
-    let throttle = input.throttle, brake = input.brake;
-    const hb = input.handbrake && Math.abs(u) > 0.5;
+    let throttle = clamp(input.throttle, 0, 1), brake = clamp(input.brake, 0, 1);
 
-    // ---- steering — Drift Legends model (right-positive: dDL > 0 steers right) -------------------
-    // DL frame: vyD = lateral velocity to the right, rD > 0 = turning right (RD yaw-rate r = -rD)
-    const vyD = -v, rD0 = -this.r, vxe = Math.max(Math.abs(u), 2.5);
-    const betaD = Math.atan2(vyD, vxe);
-    const sTarget = Math.max(-1, Math.min(1, input.steer)) * (s.setup?.steerSens || 1);
-    const sRate = (Math.sign(sTarget) !== Math.sign(this.steerIn || 0) && Math.abs(this.steerIn || 0) > 0.02) || Math.abs(sTarget) < 0.01 ? 2.6 * 2.2 : 2.6;
-    this.steerIn = (this.steerIn || 0) + Math.max(-sRate * dt, Math.min(sRate * dt, sTarget - (this.steerIn || 0)));
-    if (input.analog) this.steerIn = sTarget;
-    const steerMax = s.steerLock * 1.0;
-    const maxSteer = steerMax / (1 + Math.max(0, speed - 8) / (opts.highway ? 24 : 32)) + (opts.highway ? 0.035 : 0.06);
-    let dDL = this.steerIn * maxSteer;
-    if (assist > 0 && speed > 6 && u > 0) {
-      const k = assist * Math.max(0, Math.min(1, (Math.abs(betaD) - 0.04) / 0.18));
-      const counter = Math.max(-0.7, Math.min(0.7, betaD + this.steerIn * 0.38));
-      dDL += (counter - dDL) * k;
+    const S = this.dl;
+    const heading = this.yaw;
+    const fwdX = Math.sin(heading), fwdZ = Math.cos(heading), rgtX = -fwdZ, rgtZ = fwdX;
+    let vx = this.vx * fwdX + this.vz * fwdZ, vy = this.vx * rgtX + this.vz * rgtZ; // DL: vx forward, vy RIGHT
+    let rDL = -this.r;
+    const spd = Math.hypot(vx, vy);
+    // --- 入力（ステア角は押している時間で増加） --- DL steering, verbatim
+    const steerRate = input.steerRate || 2.6;
+    const target = clamp(input.steer, -1, 1);
+    const rate = (Math.sign(target) !== Math.sign(this.steerIn) && Math.abs(this.steerIn) > 0.02) || Math.abs(target) < 0.01 ? steerRate * 2.2 : steerRate;
+    this.steerIn += clamp(target - this.steerIn, -rate * dt, rate * dt);
+    if (input.analog) this.steerIn = target;
+    const vxe = Math.max(Math.abs(vx), 2.5);
+    const maxSteer = S.steerMax / (1 + Math.max(0, spd - 8) / (opts.highway ? 24 : 32)) + (opts.highway ? 0.035 : 0.06);
+    let delta = this.steerIn * maxSteer;
+    const beta = Math.atan2(vy, vxe); this.beta = beta;
+    if (assist > 0 && spd > 6 && vx > 0) {
+      const k = assist * clamp((Math.abs(beta) - 0.04) / 0.18, 0, 1);
+      const counter = clamp(beta + this.steerIn * 0.38, -S.counterMax, S.counterMax);
+      delta = lerp(delta, counter, k);
     }
-    const delta = -dDL; this.steer = delta; // RD convention (+ = left) for the wheel visuals
+    this.delta = delta; this.steer = -delta; // RD visual convention (+ = wheels turned left)
+    const u = vx; const speed = spd;
     // ---- gearbox: auto reverse / auto shifting ----------------------------------------------
     if (this.shiftTimer > 0) this.shiftTimer -= dt;
     const shifting = this.shiftTimer > 0;
     if (auto) {
-      if (this.gear > 0 && u < 0.5 && brake > 0.5 && throttle < 0.1) { this.gear = -1; }
-      else if (this.gear < 0 && throttle > 0.3 && u > -0.5 && brake < 0.1) { this.gear = 1; }
+      if (this.gear > 0 && vx < 0.5 && brake > 0.5 && throttle < 0.1) { this.gear = -1; }
+      else if (this.gear < 0 && throttle > 0.3 && vx > -0.5 && brake < 0.1) { this.gear = 1; }
       if (this.gear < 0) { const t = throttle; throttle = brake; brake = t; }
     }
     this.throttleIn = throttle;
@@ -146,164 +181,121 @@ export class Vehicle {
     this.load = Teng / this.peakTorque; this.decel = engBrake > 0 ? 1 : 0;
     const Taxle = Teng * ratio * 0.88 * (clutchSlip ? 1 : 1);
 
-    // ---- normal loads (with chassis lag on longitudinal transfer) ------------------------
-    this.axLag += (this.ax - this.axLag) * Math.min(1, dt / 0.11);
-    const h = s.cgHeight;
-    const down = (s.downforce || 0) * u * u * 0.9;
-    let Fzf = m * G * (this.b / L) + down * 0.45 - m * this.axLag * h / L;
-    let Fzr = m * G * (this.a / L) + down * 0.55 + m * this.axLag * h / L;
-    Fzf = Math.max(m * G * 0.1, Fzf); Fzr = Math.max(m * G * 0.1, Fzr);
-    const latT = Math.min(0.45, Math.abs(this.ay) * h / (s.body.wid * 0.85) / G);
-    const sensF = 1 - latT * (0.20 - this.susp * 0.025);
-    const sensR = 1 - latT * (0.17 - this.susp * 0.025);
-    const mu = s.tire.grip * this.surfaceGrip;
-    const trc = s.traction || 0;
-    const muF = mu * 1.0 * sensF;
-    const muR = mu * (1.04 - (s.setup?.camber || 0) * 0.03) * sensR;
-
-    // ---- Drift Legends tyre & body model ----------------------------------------------------------
-    const sgn = u >= 0 ? 1 : -1;
-    const slide = opts.highway ? 0.86 : Math.max(0.6, Math.min(0.92, 0.74 + (s.drive === 'FR' ? 0.04 : 0) + (s.drift || 0) * 0.002));
-    const Cc = 2 - 2 * Math.asin(slide) / Math.PI, Bc = Math.tan(Math.PI / (2 * Cc)) / 0.12;
-    const curve = (al) => (al < 0 ? -1 : 1) * Math.sin(Cc * Math.atan(Bc * Math.abs(al)));
-    // HIGHWAY handling: more grip & aero stability at speed, less willingness to slide
-    const HWY = !!opts.highway, hwG = HWY ? 1.1 + Math.min(0.12, speed * 0.0012) : 1;
-    const FmaxF = muF * Fzf * hwG, FmaxR = muR * (HWY ? 1.06 : 0.97) * Fzr * hwG;
-    const cd = Math.cos(dDL), sd = Math.sin(dDL);
-    const fLat = -u * sd + (vyD + rD0 * this.a) * cd, fLon = u * cd + (vyD + rD0 * this.a) * sd;
+    const driveF = Teng * ratio * 0.88 / R;           // DL: Tq·gear·final·0.86 / wheelR (RD gearRatio() includes final)
+    // --- 荷重 --- DL load transfer
+    const L = S.wb, h = S.cgH;
+    this.axF = damp(this.axF || 0, this.axDL || 0, S.transfer, dt);
+    const down = 0.6 * spd * spd;
+    let Wf = m * G * S.b / L - m * this.axF * h / L + down * S.downF;
+    let Wr = m * G * S.a / L + m * this.axF * h / L + down * S.downR;
+    Wf = Math.max(Wf, m * G * 0.12); Wr = Math.max(Wr, m * G * 0.12);
+    const Wf0 = m * G * S.b / L, Wr0 = m * G * S.a / L;
+    const HWY = !!opts.highway, hwG = HWY ? 1.1 + Math.min(0.12, spd * 0.0012) : 1; // RD highway profile
+    const g = this.surfaceGrip * hwG;
+    const muF = S.muF * g * (1 - 0.1 * (Wf / Wf0 - 1)), muR = S.muR * g * (1 - 0.1 * (Wr / Wr0 - 1));
+    const FmaxF = muF * Wf, FmaxR = muR * Wr;
+    // --- スリップ角 ---
+    const cd = Math.cos(delta), sd = Math.sin(delta);
+    const fLat = -vx * sd + (vy + rDL * S.a) * cd, fLon = vx * cd + (vy + rDL * S.a) * sd;
     const aF = Math.atan2(fLat, Math.max(Math.abs(fLon), 2.5));
-    const aR = Math.atan2(vyD - rD0 * this.b, vxe);
-    let FyF = -FmaxF * curve(aF), FyR = -FmaxR * curve(aR);
+    const aR = Math.atan2(vy - rDL * S.b, vxe);
+    this.slipF = aF; this.slipR = aR;
+    let FyF = -FmaxF * tireCurve(aF, S.B, S.C), FyR = -FmaxR * tireCurve(aR, S.B, S.C);
+    // --- 縦力（駆動・制動） ---
+    const sgn = vx >= 0 ? 1 : -1;
+    const driveR = S.driveR;
+    let FxF = driveF * (1 - driveR), FxR = driveF * driveR;
+    const bf = brake * S.brakeMax;
     const bias = s.setup?.brakeBias || 0.62;
-    const brakeMax = m * G * 1.25 * s.brake;
-    const driveF = Taxle / R;
-    let FxF = driveF * split, FxR = driveF * (1 - split);
-    if (brake > 0 && Math.abs(u) > 0.3) { FxF -= sgn * brake * brakeMax * bias; FxR -= sgn * brake * brakeMax * (1 - bias); }
-    if (hb) FxR = -sgn * FmaxR * 0.88;
-    const lsd = s.drive === 'FR' ? 0.45 : 0.3;
+    if (brake > 0 && Math.abs(vx) > 0.3) { FxF -= sgn * bf * bias; FxR -= sgn * bf * (1 - bias) * (S.lsd2way ? 1.15 : 1); }
+    const hb = input.handbrake && Math.abs(vx) > 0.5;
+    if (hb) { FxR = -sgn * FmaxR * 0.88; this.handOn = 1; } else this.handOn = 0;
+    // 摩擦円
     const lim = (Fx, Fy, Fmax, driven) => {
-      let spinT = 0;
-      if (Math.abs(Fx) > Fmax) { const over = Math.abs(Fx) / Fmax; Fx = Math.sign(Fx) * Fmax * 0.9; spinT = driven && Fx * sgn > 0 ? Math.min(1.6, (over - 1) * 0.7 + 0.25) : 0; }
-      const fyLim = Math.sqrt(Math.max(0, Fmax * Fmax - Fx * Fx)) * (spinT > 0 ? (1.3 - 0.55 * lsd) : 1);
-      return [Fx, Math.max(-fyLim, Math.min(fyLim, Fy)), spinT];
+      let spinT = 0; const cap = Fmax;
+      if (Math.abs(Fx) > cap) { const over = Math.abs(Fx) / cap; Fx = Math.sign(Fx) * cap * 0.9; spinT = driven && Fx * sgn > 0 ? Math.min(1.6, (over - 1) * 0.7 + 0.25) : 0; }
+      const fyLim = Math.sqrt(Math.max(0, cap * cap - Fx * Fx)) * (spinT > 0 ? (1.3 - 0.55 * S.lsd) : 1);
+      Fy = clamp(Fy, -fyLim, fyLim); return [Fx, Fy, spinT];
     };
-    // throttle slide: rear already sliding + throttle → wheelspin, lateral grip drops, the car is pushed on
-    let spinRt = 0;
-    if (split < 1 && Math.abs(aR) > 0.12 && throttle > 0.25 && this.gear > 0 && !hb && u > 3) {
-      const pw = Math.max(0.55, Math.min(1.35, (e.hp / (m / 1000)) / 190)) * (0.65 + 0.6 * lsd);
-      const k = Math.max(0, Math.min(1, (Math.abs(aR) - 0.12) / 0.15)) * throttle * (1 - split);
-      FyR *= 1 - k * Math.max(0.15, Math.min(0.55, pw * 0.42));
-      FxR = Math.max(FxR, FmaxR * 0.72 * k * Math.min(1.1, pw));
-      spinRt = k * 0.6;
+    // スロットルスライド: 後輪が滑っている時にアクセルを踏むとホイールスピンで横グリップが抜け、前に押し出す
+    if (driveR > 0 && Math.abs(aR) > 0.12 && throttle > 0.25 && this.gear > 0 && !hb && vx > 3) {
+      const pwr = clamp((S.hp * (this.powerFactor || 1) / (m / 1000)) / 190, 0.55, 1.35) * (0.65 + 0.6 * S.lsd);
+      const k = clamp((Math.abs(aR) - 0.12) / 0.15, 0, 1) * throttle * driveR;
+      FyR *= 1 - k * clamp(pwr * 0.42, 0.15, 0.55);
+      FxR = Math.max(FxR, FmaxR * 0.72 * k * Math.min(1.1, pwr));
+      this.spinR = Math.max(this.spinR || 0, k * 0.6);
     }
-    let sT;
-    [FxF, FyF, sT] = lim(FxF, FyF, FmaxF, split > 0); this.spinF = (this.spinF || 0) + (sT - (this.spinF || 0)) * Math.min(1, dt * (sT > (this.spinF || 0) ? 8 : 4));
-    [FxR, FyR, sT] = lim(FxR, FyR, FmaxR, split < 1); sT = Math.max(sT, spinRt); this.spinR = (this.spinR || 0) + (sT - (this.spinR || 0)) * Math.min(1, dt * (sT > (this.spinR || 0) ? 8 : 4));
-    this.wF = u / R * (1 + this.spinF); this.wR = hb ? 0 : u / R * (1 + this.spinR);
-    // forces in the DL body frame (x forward, y right)
-    let Fx = FxF * cd - FyF * sd + FxR;
-    let FyD = FxF * sd + FyF * cd + FyR;
-    let tD = this.a * (FxF * sd + FyF * cd) - this.b * FyR - (HWY ? 0.16 + speed * 0.004 : 0.1) * m * rD0 * 0.4;
-    if (assist > 0 && speed > 4) tD += assist * m * 9 * (betaD - Math.max(-0.62, Math.min(0.62, betaD))) - (Math.abs(betaD) > 0.7 ? assist * rD0 * this.inertia * 0.6 : 0);
-    const resist = Math.sign(u) * (0.013 * m * G + this.cda * u * u);
-    Fx -= resist; FyD -= this.cda * speed * vyD;
-    // back to the RD frame (y left, r counter-clockwise)
-    const Fy = -FyD; let Mz = -tD;
-    const fr = { sn: Math.abs(aF) / 0.12 }, rr = { sn: Math.abs(aR) / 0.12 };
-    const ab = Math.abs(betaD);
-    // ---- ARCADE DRIFT STATE (Drift Legends style) ---------------------------------------------
-    // Once the car is sliding, the slide is *controlled* instead of left to raw tyre physics:
-    //   steer into the drift → more angle, neutral → angle eases off, counter-steer → straighten,
-    //   throttle holds the angle & speed, handbrake deepens it. The car carves the corner at the
-    //   grip limit and keeps most of its speed. No snap-back, no spontaneous re-slides.
-    const AD = !!opts.arcadeDrift && this.gear > 0 && u > 0;
-    if (AD && !this.dState && u > 7) {
-      const st = this.steerIn, fast = speed > 15;
-      if (hb && Math.abs(st) > 0.15) this.enterDrift(Math.sign(st));
-      else if (brake > 0.35 && Math.abs(st) > 0.6 && fast) this.enterDrift(Math.sign(st));
-      else if (Math.abs(beta) > 0.13) this.enterDrift(Math.sign(beta));
-      else if (throttle > 0.85 && Math.abs(st) > 0.75 && split < 1 && Math.abs(beta) > 0.06 && Math.sign(beta) === Math.sign(st) && e.hp / (m / 1000) > 150) this.enterDrift(Math.sign(st));
-    }
-    if (!AD) this.dState = false;
-    let axB, ayB;
-    if (this.dState) {
-      const d = this.dDir, sIn = this.steerIn * d; // + into the drift, − counter-steer
-      this.dTime += dt;
-      const ang = (s.driftAngle || 1) * (HWY ? 0.6 : 1);
-      let bt = (sIn > 0.08 ? 0.12 + sIn * 0.62 + (throttle - 0.5) * 0.16 : 0) + (hb ? 0.22 : 0) - (brake > 0.5 && !hb ? 0.08 : 0);
-      bt = Math.max(0, Math.min(0.9 * ang, bt * ang)) * Math.min(1, Math.max(0.3, (speed - 5) / 10));
-      const bb = beta * d;
-      const muA = (muF + muR) * 0.5 * hwG;
-      const aMax = muA * G * 0.95;
-      // velocity direction swings toward the heading at the grip limit
-      const dphi = -Math.sign(beta) * Math.min(2.4 * Math.abs(beta), aMax / Math.max(speed, 5));
-      const kB = hb ? 4 : 2.8;
-      const rDes = dphi - d * kB * (bt - bb);
-      this.r += (rDes - this.r) * Math.min(1, dt * 7);
-      // speed: drive (less effective at big angles) − slide scrub − brakes − drag
-      const driveA = throttle > 0 && !hb ? Math.min(Taxle / R, muR * Fzr * 0.9 + (split > 0 ? muF * Fzf * 0.5 : 0)) / m : Math.min(0, Taxle / R / m);
-      const scrub = G * mu * 0.17 * Math.abs(Math.sin(beta)) * (hb ? 2.2 : 1);
-      const brkA = brake * brakeMax / m * 0.75;
-      let spd = speed + dt * (driveA * (0.5 + 0.5 * Math.cos(beta)) - scrub - brkA - (0.013 * G + this.cda * speed * speed / m));
-      spd = Math.max(0, spd);
-      const nb = beta + (dphi - this.r) * dt;
-      u = spd * Math.cos(nb); v = spd * Math.sin(nb);
-      axB = (spd - speed) / dt; ayB = spd * dphi;
-      this.spinR = hb ? 0 : Math.min(0.5, throttle * 0.35 * (1 - split)); this.spinF = split > 0 ? throttle * 0.1 : 0;
-      this.wF = u / R; this.wR = hb ? 0 : spd / R * (1 + this.spinR * 0.5);
-      // exit: straightened out, too slow, or crossed over (switch-back when counter-steering hard)
-      if (Math.abs(nb) < 0.06 && bt < 0.13) this.dExit += dt; else this.dExit = 0;
-      if ((this.dExit > 0.05 || nb * d < 0.02) && sIn < -0.45 && throttle > 0.4 && spd > 12) { this.enterDrift(-d); } // manji / feint into the next corner
-      else if (this.dExit > 0.12 || spd < 6 || throttle < 0.05 && brake < 0.05 && bb < 0.05 && this.dTime > 0.4) {
-        this.dState = false; v *= 0.5; this.r = u * Math.tan(delta) / L * 0.8 + this.r * 0.2;
-      } else if (nb * d < -0.04) {
-        this.dState = false; v *= 0.4; this.r *= 0.3;
+    let sT; [FxF, FyF, sT] = lim(FxF, FyF, FmaxF, driveR < 1); this.spinF = damp(this.spinF || 0, sT, sT > (this.spinF || 0) ? 8 : 4, dt);
+    [FxR, FyR, sT] = lim(FxR, FyR, FmaxR, driveR > 0); this.spinR = damp(this.spinR || 0, sT, sT > (this.spinR || 0) ? 8 : 4, dt);
+    // --- 合力 ---
+    let Fx = FxF * cd - FyF * sd + FxR, Fy = FxF * sd + FyF * cd + FyR;
+    const yawDamp = S.yawDamp + (HWY ? 0.06 + spd * 0.004 : 0);
+    let torque = S.a * (FxF * sd + FyF * cd) - S.b * FyR - yawDamp * m * rDL * 0.4;
+    if (assist > 0 && spd > 4) torque += assist * m * 9 * (beta - clamp(beta, -0.62, 0.62)) - (Math.abs(beta) > 0.7 ? assist * rDL * S.I * 0.6 : 0);
+    // 空気抵抗・転がり
+    const dragFx = -this.cda * spd * vx - S.roll * vx * 0.02 - Math.sign(vx) * Math.min(Math.abs(vx) * 30, S.roll * 9.0);
+    const dragFy = -this.cda * spd * vy;
+    Fx += dragFx; Fy += dragFy;
+    const axL = Fx / m, ayL = Fy / m;
+    this.axDL = axL; this.ayDL = ayL;
+    // ワールド積分
+    const vwx0 = this.vx, vwz0 = this.vz;
+    this.vx += (axL * fwdX + ayL * rgtX) * dt; this.vz += (axL * fwdZ + ayL * rgtZ) * dt;
+    rDL += torque / S.I * dt;
+    // RD fix (the only change to DL's chassis maths): GRIP-RECOVERY STABILISER.
+    // In DL the player's counter-steer is added on top of the automatic counter-steer, so while the car
+    // unwinds from a slide the front tyres can keep pulling the nose round past the direction of travel and it
+    // flips into a slide the OTHER way (tank-slapper). While |β| is shrinking, the yaw rate is blended toward the
+    // rate at which the direction of travel itself turns, with a weight that grows only as β → 0. Result: the
+    // nose meets the velocity and the car is back in grip, instead of overshooting. Entering / holding a drift
+    // (|β| growing) is untouched.
+    if (!opts.dlPure && assist > 0 && vx > 5) {
+      const unwinding = rDL * beta > 0;                                       // heading rotating back toward the velocity
+      if (unwinding) {
+        const psi0 = Math.atan2(vwx0, vwz0), psi1 = Math.atan2(this.vx, this.vz);
+        let dpsi = psi1 - psi0; dpsi -= Math.round(dpsi / (2 * Math.PI)) * 2 * Math.PI;
+        const rTarget = -dpsi / dt;                                           // DL sign: + = turning right
+        const w = clamp(1 - Math.abs(beta) / 0.3, 0, 1) * clamp(0.5 + assist, 0, 1.2);
+        rDL += (rTarget - rDL) * Math.min(1, dt * 12 * w);
       }
-    } else {
-      axB = Fx / m; ayB = Fy / m;
-      u += (axB + v * this.r) * dt;
-      v += (ayB - u * this.r) * dt;
-      this.r += (Mz / this.inertia) * dt;
     }
-    // ---- integrate --------------------------------------------------------------------------
-    if (Math.abs(u) < 2.5) { // low speed: kinematic blend (no jitter when parking)
-      const k = 1 - Math.abs(u) / 2.5;
-      this.r += (u * Math.tan(delta) / L - this.r) * k * Math.min(1, dt * 12);
-      v *= 1 - k * Math.min(1, dt * 10);
-      if (Math.abs(u) < 0.08 && throttle < 0.05) { u *= 0.85; this.wF *= 0.85; this.wR *= 0.85; }
+    // 低速安定化
+    const nv = Math.hypot(this.vx, this.vz);
+    if (nv < 0.6 && throttle < 0.05 && (brake > 0 || this.gear === 0 || input.handbrake)) { this.vx *= 0.8; this.vz *= 0.8; rDL *= 0.8; }
+    if (nv < 1.5) rDL *= Math.exp(-dt * 6 * (1.5 - nv));
+    if (opts.stable && Math.abs(vx) > 3) { // RD: CPU stability aid (AI drivers only)
+      const k = Math.min(1, dt * opts.stable), latV = this.vx * rgtX + this.vz * rgtZ;
+      this.vx -= rgtX * latV * k; this.vz -= rgtZ * latV * k; rDL += (vx * Math.tan(delta) / L - rDL) * k * 0.5;
     }
-    if (opts.stable && Math.abs(u) > 3) { // CPU stability aid
-      const k = Math.min(1, dt * opts.stable);
-      v -= v * k; this.r += (u * Math.tan(delta) / L - this.r) * k * 0.5;
-    }
-    this.ax += (axB - this.ax) * Math.min(1, dt * 12);
-    this.ay += (ayB - this.ay) * Math.min(1, dt * 10);
-    this.vx = u * sy + v * cy; this.vz = u * cy - v * sy;
-    this.x += this.vx * dt; this.z += this.vz * dt; this.yaw += this.r * dt;
-    this.u = u; this.v = v;
+    rDL = clamp(rDL, -4, 4);
+    this.yaw = heading - rDL * dt; this.r = -rDL;
+    this.x += this.vx * dt; this.z += this.vz * dt;
+    // 状態
+    const fx2 = Math.sin(this.yaw), fz2 = Math.cos(this.yaw);
+    this.u = this.vx * fx2 + this.vz * fz2; this.v = this.vx * fz2 - this.vz * fx2; // RD: v = LEFT
+    this.vLat = -this.v;
+    this.wF = this.u / R * (1 + this.spinF); this.wR = hb ? 0 : this.u / R * (1 + this.spinR);
+    this.ax += (axL - this.ax) * Math.min(1, dt * 12); this.ay += (-ayL - this.ay) * Math.min(1, dt * 10); // RD ay: + = left
+    this.axLag = this.axF;
 
     // ---- telemetry for HUD / audio / visuals --------------------------------------------------
-    this.slipFront = Math.min(1, Math.max(0, fr.sn - 1.05) * 0.5);
-    this.slipRear = this.dState ? Math.min(1, Math.abs(Math.atan2(v, Math.abs(u))) * 1.8 + (hb ? 0.4 : 0)) : Math.min(1, Math.max(0, rr.sn - 1.05) * 0.5);
-    this.wheelspin = Math.min(1, Math.max(split < 1 ? this.spinR : 0, split > 0 ? this.spinF : 0) * 1.4);
-    this.lockup = hb && Math.abs(u) > 2 ? 1 : 0;
-    this.driftAngle = speed > 5 ? beta : 0;
+    this.slipFront = Math.min(1, Math.max(0, Math.abs(aF) / 0.12 - 1.05) * 0.5);
+    this.slipRear = Math.min(1, Math.max(0, Math.abs(aR) / 0.12 - 1.05) * 0.5);
+    this.wheelspin = Math.min(1, Math.max(driveR > 0 ? this.spinR : 0, driveR < 1 ? this.spinF : 0) * 1.4);
+    this.lockup = hb && Math.abs(vx) > 2 ? 1 : 0;
+    this.driftAngle = spd > 5 ? -beta : 0; // RD sign: + = sliding to the LEFT of the nose
     this.wheelRotF += this.wF * dt; this.wheelRotR += this.wR * dt; this.wheelRot = this.wheelRotR;
-    // visual suspension
-    const k = 95 + this.susp * 30 + (s.setup?.stiffness || 0) * 30, c = 15 + this.susp * 2;
-    const pitchT = Math.max(-0.05, Math.min(0.05, -this.axLag * 0.006)), rollT = Math.max(-0.055, Math.min(0.055, this.ay * 0.0065 * (1 - this.susp * 0.15)));
-    this.pitchV += ((pitchT - this.pitch) * k - this.pitchV * c) * dt; this.pitch += this.pitchV * dt;
-    this.rollV += ((rollT - this.roll) * k - this.rollV * c) * dt; this.roll += this.rollV * dt;
+    // 車体の姿勢（見た目） — DL pitch / roll
+    this.pitch = damp(this.pitch, clamp(-axL * 0.006, -0.06, 0.06), 6, dt);
+    this.roll = damp(this.roll, clamp(-ayL * 0.0075 * S.rollK, -0.07, 0.07), 6, dt);
 
-    // ---- automatic gearbox (after the step so it sees fresh revs) ---------------------------
-    if (auto && !shifting && this.gear > 0) {
+    // ---- automatic gearbox: DL rule — no shifting while sideways (|β| ≥ 0.22) unless at the limiter / bogging
+    if (auto && !shifting && this.gear > 0 && (Math.abs(beta) < 0.22 || this.rpm > e.redline * 0.985 || this.rpm < e.redline * 0.26)) {
       const n = s.gears.length;
-      if (this.rpm > e.redline * 0.97 && this.gear < n && throttle > 0.2 && this.wheelspin < 0.5) this.shift(1);
-      else if (this.gear > 1) {
-        const lower = Math.abs(Math.max(Math.abs(wDrive), Math.abs(u) / R) * this.gearRatio(this.gear - 1)) * 60 / (2 * Math.PI);
-        const downAt = brake > 0.3 ? e.redline * 0.74 : throttle > 0.3 ? e.redline * 0.55 : e.redline * 0.42;
-        if (lower < downAt && this.rpm < e.redline * (throttle > 0.3 ? 0.55 : 0.36)) this.shift(-1);
-      }
+      const up = this.gear < n && this.rpm > e.redline * 0.94 && this.spinR < 0.5 && this.spinF < 0.5;
+      const dnRpm = this.gear > 1 ? Math.abs(vx) / R * this.gearRatio(this.gear - 1) * 60 / (2 * Math.PI) : 1e9;
+      const dn = this.gear > 1 && dnRpm < e.redline * 0.86 && this.rpm < e.redline * (brake > 0.2 ? 0.58 : 0.4);
+      if (up) this.shift(1); else if (dn) this.shift(-1);
     }
   }
 
@@ -323,7 +315,6 @@ export class Vehicle {
     const u = this.vx * sy + this.vz * cy; const R = this.spec.tire.radius;
     this.wF = u / R; if (impact > 4) this.wR = u / R;
     if (impact > 1.5) this.events.push({ type: 'hit', impact });
-    if (impact > 2.5) this.dState = false; // a real hit ends the drift
     return impact;
   }
 }

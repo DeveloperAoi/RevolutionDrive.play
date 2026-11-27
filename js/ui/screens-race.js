@@ -164,6 +164,7 @@ UI.register({
         const ay = pl.veh.ay || 0; sloshV += (-ay * 0.06 - slosh) * 0.25 - sloshV * 0.12; slosh += sloshV; const lq = Cup.querySelector('ellipse:nth-of-type(3)');
         Cup.querySelector('svg').style.transform = `rotate(${Math.max(-8, Math.min(8, slosh * 4))}deg)`; if (lq) lq.setAttribute('transform', `rotate(${Math.max(-25, Math.min(25, slosh * 22))} 50 16)`);
       }
+      if (App.debug && pl) drawDebug(this.el, pl.veh); else { const d = this.el.querySelector('.rd-debug'); if (d) d.style.display = 'none'; }
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
@@ -323,3 +324,37 @@ UI.register({
   },
   onAction(a) { if (a === 'back') return; this.focus.action(a); },
 });
+
+// ---- vehicle debug display (development only; F9 or ?debug in the URL — hidden in normal play) ----
+function drawDebug(root, v) {
+  let d = root.querySelector('.rd-debug');
+  if (!d) { d = document.createElement('div'); d.className = 'rd-debug'; d.innerHTML = '<canvas width="220" height="220"></canvas><pre></pre>'; root.appendChild(d); }
+  d.style.display = '';
+  const D = (r) => (r * 180 / Math.PI).toFixed(1).padStart(6);
+  const velDir = Math.atan2(v.vx, v.vz), fwd = v.u || 0, lat = v.vLat ?? -(v.v || 0);
+  d.querySelector('pre').textContent =
+`heading    ${D(v.yaw)}°
+vel dir    ${D(velDir)}°
+speed      ${(v.speed * 3.6).toFixed(1).padStart(6)} km/h
+fwd vel    ${fwd.toFixed(2).padStart(6)} m/s
+lat vel    ${lat.toFixed(2).padStart(6)} m/s (+ right)
+steer in   ${(v.steerIn || 0).toFixed(2).padStart(6)} (+ right)
+wheel δ    ${D(v.delta || 0)}° (+ right)
+drift β    ${D(v.beta || 0)}° (+ vel right of nose)
+yaw rate   ${D(-(v.r || 0))}°/s (+ right)
+gear/rpm   ${String(v.gear).padStart(3)} / ${Math.round(v.rpm)}
+slip F/R   ${D(v.slipF || 0)} / ${D(v.slipR || 0)}°`;
+  // top-down view in the car's frame: nose up, right = right
+  const c = d.querySelector('canvas'), g = c.getContext('2d'), W = 220, cx = 110, cy = 120;
+  g.clearRect(0, 0, W, W); g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 0, W, W);
+  g.strokeStyle = 'rgba(255,255,255,.15)'; g.beginPath(); g.moveTo(cx, 10); g.lineTo(cx, W - 10); g.moveTo(10, cy); g.lineTo(W - 10, cy); g.stroke();
+  g.save(); g.translate(cx, cy);
+  g.fillStyle = '#d8dde4'; g.fillRect(-16, -40, 32, 80); g.fillStyle = '#4af'; g.fillRect(-14, -30, 28, 14);   // body + windscreen (front = up)
+  const wheel = (x, y, a) => { g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = '#111'; g.fillRect(-4, -9, 8, 18); g.restore(); };
+  const dl = v.delta || 0; wheel(-19, -26, dl); wheel(19, -26, dl); wheel(-19, 26, 0); wheel(19, 26, 0);
+  const arrow = (ang, len, col, label) => { const x = Math.sin(ang) * len, y = -Math.cos(ang) * len; g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 3; g.beginPath(); g.moveTo(0, 0); g.lineTo(x, y); g.stroke(); g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill(); g.font = '11px monospace'; g.fillText(label, x + 6, y); };
+  arrow(0, 70, '#ffd400', 'nose');
+  if (v.speed > 0.5) arrow(Math.atan2(lat, fwd), Math.min(95, 20 + v.speed * 2), '#3cff6a', 'vel');
+  g.restore();
+}
+

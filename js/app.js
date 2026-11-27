@@ -4,10 +4,11 @@ import { Audio } from './audio/audio.js';
 import { carById, buildSpec } from './data/cars.js';
 import { Input } from './core/input.js';
 
-export const VERSION = 'Ver.2.02.00';
+export const VERSION = 'Ver.2.03.00';
 export const SITE_URL = 'https://github.com/DeveloperAoi/RevolutionDrive.play';
 
 export const App = {
+  debug: /[?&]debug\b/.test(location.search),
   gfx: null, showroom: null, titleScene: null, race: null,
   isTouch: matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window,
   // global settings used before a profile is loaded

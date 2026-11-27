@@ -13,6 +13,7 @@ import './ui/screens-hub.js';
 import './ui/screens-online.js';
 import './ui/screens-story.js';
 import './ui/screens-acc.js';
+import './ui/screens-dev.js';
 import { preloadPacks } from './data/glbcars.js';
 import { loadAeroParts, onAeroReady } from './world/aeroParts.js';
 
