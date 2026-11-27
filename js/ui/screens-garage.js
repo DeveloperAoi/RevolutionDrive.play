@@ -312,6 +312,8 @@ UI.register({
   },
 });
 
+// part card with the rendered thumbnail of a model-pack part
+const partThumb = (it) => `<div class="pthumb"><img src="${it.img}" alt="" draggable="false"><span>${PART_BRANDS[it.brand].name}</span><b>${esc(it.name)}</b></div>`;
 // ───────────────────────── DRESS UP ─────────────────────────
 const DRESS_CATS = [
   { k: 'color', jp: 'ボディカラー', icon: 'body', band: '#e06a00' },
@@ -365,7 +367,7 @@ UI.register({
     if (k.startsWith('a_')) {
       const cat = k.slice(2); const def = AERO[cat]; const curV = cat === 'muffler' ? d.muffler : d.aero[cat];
       const turboOK = !def.turboOnly || this.base.sound.turbo;
-      return def.list.map(it => ({ html: brandMark(it.brand), value: it.id, desc: `${PART_BRANDS[it.brand].name} ${it.name}`, cur: curV === it.id,
+      return def.list.map(it => ({ html: it.img ? partThumb(it) : brandMark(it.brand), value: it.id, desc: `${PART_BRANDS[it.brand].name} ${it.name}`, cur: curV === it.id,
         locked: !isCompatible(style, cat, it.id) || (!turboOK && it.id) ? (turboOOK(turboOK, it.id)) : Save.owns(cat, it.id) ? null : `IN-STOREで購入 ¥${partPrice(cat, it.id).toLocaleString()}` }));
     }
     if (k === 'wheel') { const f = d.wheel.f; const des = WHEEL_DESIGNS.find(w => w.id === f.design); return [{ html: `<canvas width="260" height="260"></canvas>`, value: 'open', desc: `${des.brand ? WHEEL_BRANDS[des.brand].name : 'Normal'} ${des.name} ${f.size}inch — 決定でホイールカスタマイズへ`, cur: true, wheel: f }]; }
@@ -867,7 +869,7 @@ UI.register({
 
 // ───────────────────────── IN-STORE (parts shop) ─────────────────────────
 const STORE_CATS = [
-  ...Object.entries(AERO).map(([k, v]) => ({ k, jp: v.jp, icon: v.icon, band: v.band, list: v.list.filter(it => it.id !== 0 && it.id !== 'stock').map(it => ({ id: it.id, brand: it.brand, name: it.name })) })),
+  ...Object.entries(AERO).map(([k, v]) => ({ k, jp: v.jp, icon: v.icon, band: v.band, list: v.list.filter(it => it.id !== 0 && it.id !== 'stock').map(it => ({ id: it.id, brand: it.brand, name: it.name, img: it.img })) })),
   { k: 'wheel', jp: 'ホイール', icon: 'wheel', band: '#1a7ad0', list: WHEEL_DESIGNS.filter(d => d.brand).map(d => ({ id: d.id, brand: d.brand, name: d.name })) },
   { k: 'vinyl', jp: 'ステッカー', icon: 'vinyl', band: '#e06a00', list: [...new Set(Object.values(VINYL_SLOTS).flatMap(v => v.designs))].filter(d => d !== 'none').map(d => ({ id: d, brand: 'NORMAL', name: VINYL_NAMES[d] })) },
 ];
@@ -897,7 +899,7 @@ UI.register({
     const cat = STORE_CATS[this.ci];
     this.opts = cat.list.map(it => {
       const owned = Save.owns(cat.k, it.id), price = partPrice(cat.k, it.id);
-      const inner = cat.k === 'wheel' ? `<canvas width="200" height="200" style="width:96px;height:96px"></canvas><div class="cap">${WHEEL_BRANDS[it.brand].name}</div>` : cat.k === 'vinyl' ? `<div style="font-family:var(--jp);font-weight:900;font-size:26px;color:#222">${esc(it.name)}</div>` : brandMark(it.brand);
+      const inner = cat.k === 'wheel' ? `<canvas width="200" height="200" style="width:96px;height:96px"></canvas><div class="cap">${WHEEL_BRANDS[it.brand].name}</div>` : cat.k === 'vinyl' ? `<div style="font-family:var(--jp);font-weight:900;font-size:26px;color:#222">${esc(it.name)}</div>` : it.img ? partThumb(it) : brandMark(it.brand);
       return { it, owned, price, html: `${inner}<div style="position:absolute;right:30px;bottom:8px;font-size:18px;font-style:italic;color:${owned ? '#1a8a3a' : '#c60'}">${owned ? '購入済み' : '¥' + price.toLocaleString()}</div>` };
     });
     this.sel = { i: 0 };

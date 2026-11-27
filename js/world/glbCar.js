@@ -8,6 +8,7 @@ import { GLTFLoader } from '../../lib/jsm/loaders/GLTFLoader.js';
 import { getEnvMap, paintMaterial, wheelBuild } from './carModel.js';
 import { RIDE_HEIGHTS } from '../data/cars.js';
 import * as TX from './textures.js';
+import { mountAero } from './aeroParts.js';
 
 const packs = new Map();     // id -> { gltf, nodes: Map(name -> Object3D) }
 const loading = new Map();   // id -> Promise
@@ -153,21 +154,8 @@ export function createGlbCar(spec, dress, opts = {}) {
   const bodyParts = parts.filter(p => p.role !== 'tire' && p.role !== 'rim');
   const zone = (zMin, zMax) => { let ymax = 0, ymin = 9, xw = 0; for (const p of bodyParts) { const a = p.geo.attributes.position; for (let i = 0; i < a.count; i += 3) { const z = a.getZ(i); if (z < zMin || z > zMax) continue; const y = a.getY(i); if (y > ymax) ymax = y; if (y < ymin) ymin = y; xw = Math.max(xw, Math.abs(a.getX(i))); } } return { ymax, ymin, xw }; };
   const rearZone = zone(all.min.z, all.min.z + 0.55), frontZone = zone(all.max.z - 0.45, all.max.z), midZone = zone(-0.8, 0.8);
-  const carbon = new THREE.MeshStandardMaterial({ map: TX.carbonTexture(), roughness: 0.25, metalness: 0.45, envMap });
-  const blk = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.6, metalness: 0.2, envMap });
-  const addB = (w, h, d, mat, x, y, z, rx = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.rotation.x = rx; m.castShadow = true; body.add(m); return m; };
   const fz0 = all.max.z, rz0 = all.min.z, groundY = Math.max(0.08, frontZone.ymin);
-  if (A.fspoiler) addB(frontZone.xw * 1.9, A.fspoiler === 2 ? 0.1 : 0.05, 0.3, A.fspoiler === 3 ? carbon : A.fspoiler === 2 ? paintMat : blk, 0, groundY + 0.03, fz0 - 0.12);
-  if (A.flip) addB(frontZone.xw * 2.0, 0.04, 0.24, carbon, 0, groundY - 0.01, fz0 - 0.02);
-  if (A.side) for (const sd of [-1, 1]) addB(0.08, A.side === 2 ? 0.13 : 0.09, Math.abs(fz - rz) - R * 2.2, A.side === 2 ? carbon : paintMat, sd * (midZone.xw + 0.01), Math.max(0.1, midZone.ymin) + 0.05, (fz + rz) / 2);
-  if (A.rbumper || A.diffuser) { addB(rearZone.xw * 1.7, 0.04, 0.3, carbon, 0, Math.max(0.1, rearZone.ymin) + 0.02, rz0 + 0.12); for (let i = -2; i <= 2; i++) addB(0.015, 0.1, 0.28, carbon, i * rearZone.xw * 0.3, Math.max(0.1, rearZone.ymin) + 0.07, rz0 + 0.12); }
-  if (A.rspoiler) addB(rearZone.xw * 1.6, 0.05, 0.2, paintMat, 0, rearZone.ymax + 0.02, rz0 + 0.2, -0.3);
-  if (A.wing) {
-    const gt = A.wing >= 2, hW = gt ? 0.3 : 0.15, wW = gt ? rearZone.xw * 2.05 : rearZone.xw * 1.7, dz = rz0 + 0.3, base = rearZone.ymax - 0.02;
-    addB(wW, 0.035, gt ? 0.3 : 0.22, gt ? carbon : paintMat, 0, base + hW, dz, 0.12);
-    for (const sd of [-1, 1]) { addB(0.03, hW, 0.1, blk, sd * wW * 0.32, base + hW / 2, dz + 0.02); if (gt) addB(0.02, 0.16, 0.34, carbon, sd * wW / 2, base + hW + 0.03, dz); }
-  }
-  if (A.canard) for (const sd of [-1, 1]) addB(0.18, 0.012, 0.12, carbon, sd * frontZone.xw * 0.85, groundY + 0.22, fz0 - 0.08, 0.2);
+  mountAero(body, A, { wid: Math.max(frontZone.xw, rearZone.xw) * 2, frontZ: fz0, rearZ: rz0, deckY: rearZone.ymax, noseY: groundY + 0.22, lipY: groundY + 0.02, paintMat, envMap });
 
   // ---- shadow, lights, flares ----
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(wid * 1.25, len * 1.15), new THREE.MeshBasicMaterial({ map: TX.glowTexture('rgba(0,0,0,0.85)', 'rgba(0,0,0,0)'), transparent: true, depthWrite: false }));

@@ -11,32 +11,39 @@ export const PART_BRANDS = {
   SHINOBI: { name: 'SHINOBI', color: '#1a7a3a', style: 'slant' },
 };
 
-// aero categories → variants. "v" is the geometry variant used by the car model.
+// aero categories → variants. Body parts come from the parts model pack (assets/parts/aero_parts.glb,
+// mounted by js/world/aeroParts.js): rear wings, front splitter and canards.
+export const WING_TYPES = { lip: { df: 0.04, cd: 0.006, price: 1800 }, hoop: { df: 0.10, cd: 0.02, price: 2800 }, mid: { df: 0.13, cd: 0.025, price: 3200 }, gt: { df: 0.18, cd: 0.045, price: 4200 }, swan: { df: 0.21, cd: 0.045, price: 5200 }, swanXL: { df: 0.25, cd: 0.06, price: 6400 } };
 export const AERO = {
-  fspoiler: { jp: 'フロントバンパー', icon: 'front', band: '#2a9a3a', list: [
-    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'KAMISPEED', name: 'フロントアンダースポイラー' }, { id: 2, brand: 'RAIDEN', name: 'フロントバンパー+大型ダクト' }, { id: 3, brand: 'ZENITH', name: 'フロントスプリッター' }] },
-  flip: { jp: 'フロントリップ', icon: 'front', band: '#2a9a3a', list: [
-    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'HAYABUSA', name: 'カーボンリップ' }, { id: 2, brand: 'SHINOBI', name: 'ワイドリップ' }] },
-  side: { jp: 'サイドスカート', icon: 'side', band: '#1a7ad0', list: [
-    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'KAMISPEED', name: 'サイドステップ' }, { id: 2, brand: 'ZENITH', name: 'ワイドサイドスカート' }] },
-  rbumper: { jp: 'リアバンパー', icon: 'rear', band: '#1a7ad0', list: [
-    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'RAIDEN', name: 'リアアンダースポイラー' }, { id: 2, brand: 'AKATSUKI', name: 'リアディフューザー' }] },
-  diffuser: { jp: 'リアディフューザー', icon: 'rear', band: '#1a7ad0', list: [
-    { id: 0, brand: 'NORMAL', name: 'なし' }, { id: 1, brand: 'ZENITH', name: 'カーボンディフューザー' }, { id: 2, brand: 'AKATSUKI', name: 'レーシングディフューザー(大型フィン)' }] },
-  rspoiler: { jp: 'リアスポイラー', icon: 'rear', band: '#1a7ad0', list: [
-    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'HAYABUSA', name: 'ダックテール' }, { id: 2, brand: 'SHINOBI', name: 'ルーフスポイラー' }] },
-  wing: { jp: 'ウイング', icon: 'wing', band: '#e06a00', list: [
-    { id: 0, brand: 'NORMAL', name: 'なし' }, { id: 1, brand: 'KAMISPEED', name: 'ミドルウイング' }, { id: 2, brand: 'RAIDEN', name: 'GTウイング' }, { id: 3, brand: 'AKATSUKI', name: 'スワンネックウイング' }] },
-  bonnet: { jp: 'ボンネット', icon: 'hood', band: '#2a9a3a', list: [
-    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'ZENITH', name: 'エアロボンネット' }, { id: 2, brand: 'HAYABUSA', name: 'カーボンボンネット' }, { id: 3, brand: 'RAIDEN', name: 'ダクト付きボンネット' }] },
+  fspoiler: { jp: 'フロントスプリッター', icon: 'front', band: '#2a9a3a', list: [
+    { id: 0, brand: 'NORMAL', name: 'なし' }, { id: 1, brand: 'ZENITH', name: 'カーボンスプリッター', img: 'assets/parts/thumbs/splitter.png' }, { id: 2, brand: 'RAIDEN', name: 'ボディ同色スプリッター', img: 'assets/parts/thumbs/splitter.png' }] },
   canard: { jp: 'カナード', icon: 'front', band: '#2a9a3a', list: [
-    { id: 0, brand: 'NORMAL', name: 'なし' }, { id: 1, brand: 'SHINOBI', name: 'フロントカナード' }, { id: 2, brand: 'KAMISPEED', name: 'ダブルカナード' }] },
-  fender: { jp: 'オーバーフェンダー', icon: 'side', band: '#e06a00', list: [
-    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'AKATSUKI', name: 'ボルトオンフェンダー' }, { id: 2, brand: 'ZENITH', name: 'ワイドボディキット' }] },
-  intake: { jp: 'インテーク', icon: 'hood', band: '#c01020', list: [
-    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'HAYABUSA', name: 'むき出しエアクリーナー' }, { id: 2, brand: 'RAIDEN', name: 'ラムエアダクト' }] },
-  intercooler: { jp: 'インタークーラー', icon: 'front', band: '#c01020', list: [
-    { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'ZENITH', name: '前置きインタークーラー' }, { id: 2, brand: 'KAMISPEED', name: '大容量前置きIC' }], turboOnly: true },
+    { id: 0, brand: 'NORMAL', name: 'なし' }, { id: 1, brand: 'SHINOBI', name: 'カーボンカナード', img: 'assets/parts/thumbs/canard.png' }, { id: 2, brand: 'KAMISPEED', name: 'ボディ同色カナード', img: 'assets/parts/thumbs/canard.png' }] },
+  wing: { jp: 'リアウイング', icon: 'wing', band: '#e06a00', list: [
+    { id: 0, brand: 'NORMAL', name: 'なし' },
+    { id: 1, brand: 'RAIDEN', name: 'GTウイング TYPE-R', type: 'gt', img: 'assets/parts/thumbs/wing_01.png' },
+    { id: 2, brand: 'HAYABUSA', name: 'トランクリップスポイラー', type: 'lip', img: 'assets/parts/thumbs/wing_02.png' },
+    { id: 3, brand: 'ZENITH', name: 'センターマウントウイング', type: 'mid', img: 'assets/parts/thumbs/wing_03.png' },
+    { id: 4, brand: 'AKATSUKI', name: 'ハイマウントループウイング', type: 'hoop', img: 'assets/parts/thumbs/wing_04.png' },
+    { id: 5, brand: 'KAMISPEED', name: 'GTウイング TYPE-S', type: 'gt', img: 'assets/parts/thumbs/wing_05.png' },
+    { id: 6, brand: 'SHINOBI', name: 'スリムリップスポイラー', type: 'lip', img: 'assets/parts/thumbs/wing_06.png' },
+    { id: 7, brand: 'HAYABUSA', name: 'ラウンドエンドウイング', type: 'mid', img: 'assets/parts/thumbs/wing_07.png' },
+    { id: 8, brand: 'KAMISPEED', name: 'GTウイング TYPE-K', type: 'gt', img: 'assets/parts/thumbs/wing_08.png' },
+    { id: 9, brand: 'AKATSUKI', name: 'ツイストウイング', type: 'mid', img: 'assets/parts/thumbs/wing_09.png' },
+    { id: 10, brand: 'RAIDEN', name: 'ラウンドGTウイング', type: 'gt', img: 'assets/parts/thumbs/wing_10.png' },
+    { id: 11, brand: 'HAYABUSA', name: 'ダックテールスポイラー', type: 'lip', img: 'assets/parts/thumbs/wing_11.png' },
+    { id: 12, brand: 'ZENITH', name: 'ライトウェイトGTウイング', type: 'gt', img: 'assets/parts/thumbs/wing_12.png' },
+    { id: 13, brand: 'SHINOBI', name: '3段ループスポイラー', type: 'hoop', img: 'assets/parts/thumbs/wing_13.png' },
+    { id: 14, brand: 'KAMISPEED', name: 'ウェーブGTウイング', type: 'gt', img: 'assets/parts/thumbs/wing_14.png' },
+    { id: 15, brand: 'RAIDEN', name: 'スワンネック ハイダウンフォース', type: 'swanXL', img: 'assets/parts/thumbs/wing_15.png' },
+    { id: 16, brand: 'ZENITH', name: 'ワイヤーステーGTウイング', type: 'gt', img: 'assets/parts/thumbs/wing_16.png' },
+    { id: 17, brand: 'AKATSUKI', name: 'タイムアタックウイング', type: 'swan', img: 'assets/parts/thumbs/wing_17.png' },
+    { id: 18, brand: 'RAIDEN', name: 'スワンネックGTウイング', type: 'swan', img: 'assets/parts/thumbs/wing_18.png' },
+    { id: 19, brand: 'SHINOBI', name: 'ツインステーGTウイング', type: 'gt', img: 'assets/parts/thumbs/wing_19.png' },
+    { id: 20, brand: 'ZENITH', name: 'ワイドエンドプレートウイング', type: 'gt', img: 'assets/parts/thumbs/wing_20.png' },
+    { id: 21, brand: 'KAMISPEED', name: 'スワンネック ストリート', type: 'swan', img: 'assets/parts/thumbs/wing_21.png' },
+    { id: 22, brand: 'AKATSUKI', name: 'スワンネック レーシング', type: 'swan', img: 'assets/parts/thumbs/wing_22.png' },
+    { id: 23, brand: 'HAYABUSA', name: 'ボディ同色リアスポイラー', type: 'lip', img: 'assets/parts/thumbs/wing_23.png' }] },
   calipers: { jp: 'ブレーキキャリパー', icon: 'wheel', band: '#c01020', list: [
     { id: 0, brand: 'NORMAL', name: 'ノーマル' }, { id: 1, brand: 'AKATSUKI', name: '4ポッドキャリパー(レッド)' }, { id: 2, brand: 'RAIDEN', name: '6ポッドビッグキット(ゴールド)' }] },
   suspkit: { jp: 'サスペンション', icon: 'height', band: '#c01020', list: [
@@ -44,10 +51,11 @@ export const AERO = {
   muffler: { jp: 'マフラー', icon: 'muffler', band: '#1a7ad0', list: [
     { id: 'stock', brand: 'NORMAL', name: 'ノーマル' }, { id: 'dual', brand: 'HAYABUSA', name: 'デュアルテール' }, { id: 'big', brand: 'KAMISPEED', name: 'チタン砲弾' }, { id: 'quad', brand: 'RAIDEN', name: '4本出し' }] },
 };
+const wingType = (id) => WING_TYPES[(AERO.wing.list.find(w => w.id === id) || {}).type] || null;
 
 // IN-STORE prices (credits). id 0 / 'stock' is always owned.
 export const PART_PRICE = { fspoiler: 2500, flip: 1500, side: 2000, rbumper: 2000, diffuser: 2500, rspoiler: 1500, wing: 3000, bonnet: 2500, canard: 1200, fender: 3500, intake: 2000, intercooler: 3500, calipers: 2500, suspkit: 3000, muffler: 2000, wheel: 2000, vinyl: 800, color: 0 };
-export const partPrice = (cat, id) => (id === 0 || id === 'stock' || id === 'none' || id === 'stock5') ? 0 : Math.round((PART_PRICE[cat] || 1500) * (1 + (typeof id === 'number' ? (id - 1) * 0.35 : 0)));
+export const partPrice = (cat, id) => (id === 0 || id === 'stock' || id === 'none' || id === 'stock5') ? 0 : cat === 'wing' && wingType(id) ? wingType(id).price : Math.round((PART_PRICE[cat] || 1500) * (1 + (typeof id === 'number' ? (id - 1) * 0.35 : 0)));
 export const partKey = (cat, id) => `${cat}:${id}`;
 // parts a body style cannot physically take
 export const INCOMPATIBLE = {
@@ -197,13 +205,9 @@ export function partEffects(dress, base) {
   const fx = { power: 0, downforce: 0, cda: 0, mass: 0, grip: 0, brake: 0, susp: 0, cg: 0 };
   if (!dress || !dress.v2) return fx;
   const A = dress.aero || {};
-  fx.downforce += [0, 0.08, 0.18, 0.22][A.wing || 0]; fx.cda += [0, 0.02, 0.05, 0.05][A.wing || 0];
-  fx.downforce += (A.fspoiler ? 0.03 : 0) + (A.flip ? 0.02 : 0) + (A.canard ? 0.015 * A.canard : 0) + (A.diffuser ? 0.03 + A.diffuser * 0.01 : 0) + (A.rspoiler ? 0.02 : 0);
-  fx.cda += (A.fspoiler ? 0.01 : 0) + (A.canard ? 0.006 : 0) + (A.fender === 2 ? 0.02 : A.fender === 1 ? 0.01 : 0);
-  fx.mass += A.bonnet === 2 ? -12 : A.bonnet === 1 ? -5 : 0;
-  fx.grip += A.fender === 2 ? 0.015 : A.fender === 1 ? 0.008 : 0;
-  fx.power += [0, 1.5, 3][A.intake || 0];
-  if (base && base.sound.turbo) fx.power += [0, 3, 5][A.intercooler || 0];
+  const wt = wingType(A.wing); if (wt) { fx.downforce += wt.df; fx.cda += wt.cd; }
+  fx.downforce += (A.fspoiler ? 0.03 : 0) + (A.canard ? 0.02 : 0);
+  fx.cda += (A.fspoiler ? 0.01 : 0) + (A.canard ? 0.006 : 0);
   fx.power += { stock: 0, dual: 1, big: 2, quad: 2 }[dress.muffler] || 0;
   fx.brake += [0, 0.04, 0.08][A.calipers || 0];
   fx.susp += [0, 0.5, 1.0, 1.5][A.suspkit || 0];

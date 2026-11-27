@@ -14,6 +14,7 @@ import './ui/screens-online.js';
 import './ui/screens-story.js';
 import './ui/screens-acc.js';
 import { preloadPacks } from './data/glbcars.js';
+import { loadAeroParts, onAeroReady } from './world/aeroParts.js';
 
 export async function goFullscreen() {
   try { const el = document.documentElement; if (!document.fullscreenElement && el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' }); } catch { /* iOS Safari: not supported */ }
@@ -26,6 +27,8 @@ function boot() {
   App.gfx = new Gfx(document.getElementById('gl'));
   App.applySettings();
   preloadPacks();
+  loadAeroParts();
+  onAeroReady(() => { try { const c = UI.current; if (c && typeof c.redraw === 'function') c.redraw(); else if (c && c.id === 'store' && c.preview) c.preview(); } catch (e) { /* screen not ready */ } });
   Save.on(() => refreshSync());
   // first user gesture unlocks audio (browser autoplay policy)
   const unlock = () => { Audio.unlock(); App.applySettings(); };

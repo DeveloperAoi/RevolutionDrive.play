@@ -1,11 +1,12 @@
 // REVOLUTION DRIVE — procedural 3D car models (original designs)
 // Bodies are extruded from side profiles with real wheel-arch cut-outs, and every
-// dress-up option (paint, wheels, spoiler, aero, muffler) changes the actual geometry.
+// dress-up option (paint, wheels, aero parts from the model pack, muffler) changes the actual geometry.
 import * as THREE from 'three';
 import { MUFFLERS, RIDE_HEIGHTS } from '../data/cars.js';
 import { WHEEL_DESIGNS, normalizeCar } from '../data/custom.js';
 import * as TX from './textures.js';
 import { createGlbCar, packReady } from './glbCar.js';
+import { mountAero } from './aeroParts.js';
 
 // normalised side profiles: x from rear (-0.5) to front (+0.5), y as fraction of body height
 const PROFILES = {
@@ -211,8 +212,8 @@ export function createCar(spec, dressIn = {}, opts = {}) {
   const A = dress.aero || {};
   const b = spec.body;
   const len = b.len, hgt = b.hgt;
-  const wide = A.fender === 2 ? 0.08 : A.fender === 1 ? 0.04 : 0;
-  const wid = b.wid + (A.fender === 2 ? wide * 2 : 0);
+  const wide = 0;
+  const wid = b.wid;
   const prof = PROFILES[b.shape] || PROFILES[b.style] || PROFILES.coupe;
   const R = spec.tire.radius, TW = (spec.tire.width + ((dressIn && dressIn.wheel && dressIn.wheel.tireW) || 0)) / 1000 + 0.02;
   const wb = spec.wheelbase;
@@ -239,7 +240,7 @@ export function createCar(spec, dressIn = {}, opts = {}) {
   const cs = new THREE.Shape(); cs.moveTo(cabinPts[0][0], cabinPts[0][1] - 0.04);
   for (const p of cabinPts) cs.lineTo(p[0], p[1]);
   cs.lineTo(cabinPts[cabinPts.length - 1][0], cabinPts[cabinPts.length - 1][1] - 0.04); cs.closePath();
-  const cabinW = wid * (b.style === 'roadster' ? 0.86 : 0.80) - (A.fender === 2 ? wide * 2 : 0);
+  const cabinW = wid * (b.style === 'roadster' ? 0.86 : 0.80);
   const cabin = new THREE.Mesh(extrude(cs, cabinW, 0.05, 2), glassMat()); cabin.position.y = Y0; body.add(cabin);
   if (b.style !== 'roadster') {
     const rp = prof.cabin.slice(1, 3).map(([x, y]) => [x * len, y * hgt]);
@@ -367,66 +368,19 @@ export function createCar(spec, dressIn = {}, opts = {}) {
   }
 
 
-  // ---- aero parts (each category independent) ----
+  // ---- aero parts: model pack (wings / splitter / canards) — see js/world/aeroParts.js ----
   const add = (geo, mat, x, y, z, rx = 0, ry = 0, rzz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rzz); body.add(m); return m; };
-  // front spoiler / bumper
-  if (A.fspoiler === 1) add(new THREE.BoxGeometry(wid * 0.92, 0.07, 0.26), bk, 0, Y0 + 0.12, frontZ - 0.08);
-  if (A.fspoiler === 2) { add(new THREE.BoxGeometry(wid * 0.98, 0.2, 0.3), paintMat, 0, Y0 + 0.2, frontZ - 0.1); for (const x of [-0.45, 0, 0.45]) add(new THREE.BoxGeometry(x ? 0.28 : 0.5, 0.1, 0.05), bk, x * wid / 1.6, Y0 + 0.2, frontZ + 0.055); }
-  if (A.fspoiler === 3) add(new THREE.BoxGeometry(wid * 1.0, 0.025, 0.42), carbonMat, 0, Y0 + 0.08, frontZ - 0.02);
-  if (A.flip === 1) add(new THREE.BoxGeometry(wid * 0.96, 0.05, 0.22), carbonMat, 0, Y0 + 0.15, frontZ - 0.02);
-  if (A.flip === 2) add(new THREE.BoxGeometry(wid * 1.02, 0.06, 0.3), carbonMat, 0, Y0 + 0.13, frontZ);
-  // side skirts
-  if (A.side) for (const sd of [-1, 1]) {
-    add(new THREE.BoxGeometry(A.side === 2 ? 0.1 : 0.06, A.side === 2 ? 0.14 : 0.1, wb - R * 2.3), paintMat, sd * (wid / 2 - 0.01 + (A.side === 2 ? 0.02 : 0)), Y0 + 0.15, 0);
-    if (A.side === 2) add(new THREE.BoxGeometry(0.12, 0.025, wb - R * 2.3), carbonMat, sd * (wid / 2 + 0.02), Y0 + 0.08, 0);
-  }
-  // rear bumper
-  if (A.rbumper === 1) add(new THREE.BoxGeometry(wid * 0.9, 0.08, 0.22), bk, 0, Y0 + 0.13, rearZ + 0.08);
-  if (A.rbumper === 2) { add(new THREE.BoxGeometry(wid * 0.92, 0.04, 0.32), carbonMat, 0, Y0 + 0.1, rearZ + 0.06); for (let i = -2; i <= 2; i++) add(new THREE.BoxGeometry(0.015, 0.12, 0.3), carbonMat, i * wid * 0.14, Y0 + 0.16, rearZ + 0.06); }
-  else add(new THREE.BoxGeometry(wid * 0.9, 0.08, 0.2), bk, 0, Y0 + 0.2 * hgt, rearZ + 0.08);
-  // rear spoiler (ducktail / roof)
+  add(new THREE.BoxGeometry(wid * 0.9, 0.08, 0.2), bk, 0, Y0 + 0.2 * hgt, rearZ + 0.08); // stock rear bumper lower
   const deckY = Y0 + prof.lower[3][1] * hgt, deckZ = rearZ + 0.22;
-  if (A.rspoiler === 1) add(new THREE.BoxGeometry(wid * 0.82, 0.06, 0.2), paintMat, 0, deckY + 0.03, deckZ, -0.35);
-  if (A.rspoiler === 2 && b.style !== 'roadster') { const c1 = prof.cabin[1]; add(new THREE.BoxGeometry(cabinW * 0.9, 0.03, 0.22), paintMat, 0, Y0 + c1[1] * hgt + 0.01, c1[0] * len - 0.1, 0.15); }
-  // wing
-  if (A.wing) {
-    const gt = A.wing >= 2, swan = A.wing === 3;
-    const hW = gt ? 0.34 : 0.17, wW = gt ? wid * 0.98 : wid * 0.8;
-    const wm = gt ? carbonMat : paintMat;
-    add(new THREE.BoxGeometry(wW, 0.035, gt ? 0.32 : 0.24), wm, 0, deckY + hW, deckZ - 0.02, 0.12);
-    for (const sd of [-1, 1]) {
-      if (swan) { add(new THREE.BoxGeometry(0.025, hW + 0.08, 0.1), bk, sd * wW * 0.3, deckY + hW / 2 + 0.06, deckZ + 0.06, -0.25); }
-      else add(new THREE.BoxGeometry(0.03, hW, 0.12), bk, sd * wW * 0.32, deckY + hW / 2, deckZ);
-      if (gt) add(new THREE.BoxGeometry(0.02, 0.16, 0.36), wm, sd * wW / 2, deckY + hW + 0.03, deckZ - 0.02);
-    }
-  }
-  // bonnet
   const hoodX0 = prof.cabin[prof.cabin.length - 1][0] + 0.03, hoodX1 = 0.45;
   const hz = ((hoodX0 + hoodX1) / 2) * len, hy = yAt((hoodX0 + hoodX1) / 2);
   const hoodSlope = Math.atan2(yAt(hoodX0) - yAt(hoodX1), (hoodX1 - hoodX0) * len);
   const hoodL = (hoodX1 - hoodX0) * len;
-  if (A.bonnet === 1) add(new THREE.BoxGeometry(wid * 0.4, 0.06, hoodL * 0.8), paintMat, 0, hy + 0.02, hz, hoodSlope);
-  if (A.bonnet === 2) add(new THREE.BoxGeometry(wid * 0.86, 0.012, hoodL * 0.95), carbonMat, 0, hy + 0.012, hz, hoodSlope);
-  if (A.bonnet === 3) for (const sd of [-1, 1]) add(new THREE.BoxGeometry(wid * 0.18, 0.02, hoodL * 0.35), bk, sd * wid * 0.2, hy + 0.012, hz + 0.05, hoodSlope);
-  // diffuser, intercooler, intake
-  if (A.diffuser) { add(new THREE.BoxGeometry(wid * 0.8, 0.03, 0.34), carbonMat, 0, Y0 + 0.09, rearZ + 0.07, -0.12); for (let i = -2; i <= 2; i++) add(new THREE.BoxGeometry(0.014, A.diffuser === 2 ? 0.16 : 0.1, 0.32), carbonMat, i * wid * 0.15, Y0 + 0.14, rearZ + 0.07); }
-  if (A.intercooler) {
-    const core = new THREE.Mesh(new THREE.BoxGeometry(wid * (A.intercooler === 2 ? 0.7 : 0.56), A.intercooler === 2 ? 0.16 : 0.12, 0.05), new THREE.MeshStandardMaterial({ map: TX.carbonTexture(), color: 0xb8bcc2, metalness: 0.9, roughness: 0.35, envMap }));
-    core.position.set(0, Y0 + 0.24, frontZ - 0.04); body.add(core);
-  }
-  if (A.intake === 2) for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.16, 0.08, 0.05), bk, sd * wid * 0.32, Y0 + 0.22, frontZ + 0.012);
-  if (A.intake === 1) add(new THREE.CylinderGeometry(0.07, 0.07, 0.12, 12), new THREE.MeshStandardMaterial({ color: 0xd01010, roughness: 0.5 }), wid * 0.22, hy + 0.05, hz - 0.1, 0, 0, Math.PI / 2);
-  // model features
   const feat = b.features || [];
-  if (feat.includes('scoop') && !A.bonnet) { add(new THREE.BoxGeometry(wid * 0.26, 0.07, hoodL * 0.32), paintMat, 0, hy + 0.04, hz + 0.02, hoodSlope); add(new THREE.BoxGeometry(wid * 0.22, 0.05, 0.02), bk, 0, hy + 0.05, hz + hoodL * 0.16 + 0.01); }
+  if (feat.includes('scoop')) { add(new THREE.BoxGeometry(wid * 0.26, 0.07, hoodL * 0.32), paintMat, 0, hy + 0.04, hz + 0.02, hoodSlope); add(new THREE.BoxGeometry(wid * 0.22, 0.05, 0.02), bk, 0, hy + 0.05, hz + hoodL * 0.16 + 0.01); }
   if (feat.includes('hoopwing') && !A.wing) { const ww = wid * 0.9; add(new THREE.BoxGeometry(ww, 0.03, 0.18), paintMat, 0, deckY + 0.2, deckZ + 0.02, 0.1); for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.05, 0.2, 0.14), paintMat, sd * ww / 2, deckY + 0.1, deckZ + 0.02); }
   if (feat.includes('wing') && !A.wing) { const ww = wid * 0.82; add(new THREE.BoxGeometry(ww, 0.03, 0.22), paintMat, 0, deckY + 0.16, deckZ, 0.14); for (const sd of [-1, 1]) add(new THREE.BoxGeometry(0.03, 0.16, 0.12), bk, sd * ww * 0.34, deckY + 0.08, deckZ); }
-  // canards
-  if (A.canard) for (const sd of [-1, 1]) for (let k = 0; k < A.canard; k++) add(new THREE.BoxGeometry(0.16, 0.012, 0.12), carbonMat, sd * (wid / 2 - 0.02), Y0 + 0.22 + k * 0.09, frontZ - 0.12, 0, 0, sd * 0.25);
-  // over-fenders
-  if (A.fender) for (const z of [fz, rz]) for (const sd of [-1, 1]) {
-    const fl = add(new THREE.TorusGeometry(R + 0.08, A.fender === 2 ? 0.07 : 0.045, 6, 16, Math.PI), A.fender === 2 ? paintMat : bk, sd * (wid / 2 - 0.02 + (A.fender === 1 ? 0.03 : 0)), Y0 + R - 0.06, z, 0, Math.PI / 2);
-  }
+  mountAero(body, A, { wid, frontZ, rearZ, deckY, noseY: Y0 + 0.16 + 0.12 * hgt, lipY: Y0 + 0.075, paintMat, envMap });
   // muffler
   const mu = MUFFLERS.find(m => m.id === dress.muffler) || MUFFLERS[0];
   const tipR = mu.big ? 0.07 : 0.042;
