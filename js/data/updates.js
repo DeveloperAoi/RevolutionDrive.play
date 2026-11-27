@@ -1,6 +1,13 @@
 // REVOLUTION DRIVE — update log (newest first). Shown in お知らせ / UPDATE LOG.
 export const UPDATES = [
   {
+    ver: 'Ver.2.06.01', date: '2026-11-27', title: 'KAZE RS:モデル本来のリトラクタブルライトが開閉',
+    items: [
+      '後から付け足していたライトを廃止し、3Dモデルに元々あるリトラクタブルライトそのものが開閉するように',
+      '閉じるとボンネットの中へ倒れ込み、開くとライトが前を向く(夜・トンネルで自動、Hキーで手動)',
+    ],
+  },
+  {
     ver: 'Ver.2.06.00', date: '2026-11-27', title: 'KAZE RS が新しい3Dモデルに',
     items: [
       'KAZE RS を高精細な3Dモデルに置き換え(パンダカラー・ボディ同色の変更に対応)',

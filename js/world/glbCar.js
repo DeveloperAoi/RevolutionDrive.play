@@ -39,6 +39,7 @@ function findCarParent(scene) {
 
 const roleOf = (name) => {
   const s = clean(name);
+  if (/popup/.test(s)) return 'popup';   // the model's own retractable headlamp units (animated, see below)
   if (/tire|tyre/.test(s)) return 'tire';
   if (/wheel/.test(s) || (/rim/.test(s) && !/trim/.test(s))) return 'rim';
   if (/paint|carpaint|bodycolor/.test(s)) return 'paint';
@@ -125,7 +126,7 @@ export function createGlbCar(spec, dress, opts = {}) {
   // ---- assemble rig ----
   const root = new THREE.Group(); const body = new THREE.Group(); root.add(body);
   for (const p of parts) {
-    if (p.role === 'tire' || p.role === 'rim') continue;
+    if (p.role === 'tire' || p.role === 'rim' || p.role === 'popup') continue;
     p.geo.computeVertexNormals();
     const mesh = new THREE.Mesh(p.geo, matFor(p)); body.add(mesh);
   }
@@ -171,40 +172,40 @@ export function createGlbCar(spec, dress, opts = {}) {
     body.add(sl, sl.target); lights.push(sl);
   }
   const flareMat = new THREE.SpriteMaterial({ map: TX.glowTexture('rgba(255,255,250,1)', 'rgba(180,200,255,0)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
-  for (const sd of [-1, 1]) { const f = new THREE.Sprite(flareMat); f.position.set(sd * lightW, yH, frontZ + 0.05); f.scale.set(0.6, 0.6, 1); f.visible = lit; body.add(f); }
+  const headFlares = [];
+  for (const sd of [-1, 1]) { const f = new THREE.Sprite(flareMat); f.position.set(sd * lightW, yH, frontZ + 0.05); f.scale.set(0.6, 0.6, 1); f.visible = lit; f.userData.on = lit; body.add(f); headFlares.push(f); }
   const tb = tails.length ? centroidOf(parts.filter(p => p.role === 'tail')) : null;
   const tY = tb ? tb.getCenter(new THREE.Vector3()).y : hgt * 0.5, tW = tb ? Math.max(0.3, tb.max.x * 0.8) : wid / 2 - 0.3;
   const tailFlareMat = new THREE.SpriteMaterial({ map: TX.glowTexture('rgba(255,60,40,1)', 'rgba(255,0,0,0)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: lit ? 0.6 : 0.15 });
   const tailFlares = [];
   for (const sd of [-1, 1]) { const f = new THREE.Sprite(tailFlareMat); f.position.set(sd * tW, tY, rearZ - 0.05); f.scale.set(0.7, 0.5, 1); body.add(f); tailFlares.push(f); }
 
-  // ---- pop-up headlamps (spec.body.head === 'popup'): animated units on the bonnet, hinged at their rear edge ----
-  const popups = []; let popAng = 0, popTarget = 0;
-  if (spec.body?.head === 'popup') {
-    const pz = frontZ - (m.popup?.back ?? 0.5), pzone = zone(pz - 0.05, pz + 0.25);
-    const lidMat = m.popup?.lid ? new THREE.MeshStandardMaterial({ color: m.popup.lid, roughness: 0.35, metalness: 0.3, envMap }) : paintMat;
-    const pw = 0.34, ph = 0.12, pd = 0.24, px = m.popup?.x ?? frontZone.xw * 0.6;
-    const lampMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff4dd, emissiveIntensity: 1.6, roughness: 0.1 });
-    const blackM = new THREE.MeshStandardMaterial({ color: 0x0b0b0c, roughness: 0.6 });
-    for (const sd of [-1, 1]) {
-      const hinge = new THREE.Group(); hinge.position.set(sd * px, pzone.ymax + 0.003, pz); body.add(hinge);
-      const unit = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, pd), lidMat); unit.position.set(0, -ph / 2, pd / 2); hinge.add(unit);
-      const bez = new THREE.Mesh(new THREE.BoxGeometry(pw - 0.02, 0.012, pd - 0.03), blackM); bez.position.set(0, -ph - 0.004, pd / 2); hinge.add(bez);
-      const lamp = new THREE.Mesh(new THREE.CircleGeometry(0.075, 18), lampMat); lamp.rotation.x = Math.PI / 2; lamp.position.set(0, -ph - 0.012, pd / 2); hinge.add(lamp);
-      unit.visible = bez.visible = lamp.visible = false; // hidden while closed: the model's own closed lids show
-      popups.push({ hinge, parts: [unit, bez, lamp] });
-    }
+  // ---- the model's own pop-up headlamps (meshes named popup_*): modelled OPEN; each unit is hinged at its rear
+  // top edge and swings forward/down into the bonnet to close (lid follows the bonnet line, lamp faces down) ----
+  const popups = []; let popAng = 1, popTarget = 1;
+  const paintMats = new Set(parts.filter(p => p.role === 'paint').map(p => p.mat));
+  const popParts = parts.filter(p => p.role === 'popup');
+  const closeAng = m.popup?.close ?? 0.62, sinkY = m.popup?.sink ?? 0.02;
+  for (const sd of [1, -1]) {
+    const side = popParts.filter(p => { p.geo.computeBoundingBox(); return Math.sign(p.geo.boundingBox.getCenter(new THREE.Vector3()).x) === sd; });
+    if (!side.length) continue;
+    const bb = centroidOf(side);
+    const hinge = new THREE.Group(); hinge.position.set((bb.min.x + bb.max.x) / 2, bb.max.y, bb.min.z); body.add(hinge);
+    for (const p of side) { p.geo.translate(-hinge.position.x, -hinge.position.y, -hinge.position.z); p.geo.computeVertexNormals(); const mesh = new THREE.Mesh(p.geo, paintMats.has(p.mat) ? paintMat : upgrade(p.mat)); mesh.castShadow = true; hinge.add(mesh); }
+    popups.push({ hinge, y0: hinge.position.y, parts: [] });
   }
+  const setPop = () => { const e = popAng * popAng * (3 - 2 * popAng), c = 1 - e;
+    for (const p of popups) { p.hinge.rotation.x = c * closeAng; p.hinge.position.y = p.y0 - c * sinkY; }
+    for (const l of lights) l.visible = popAng > 0.85; for (const f of headFlares) f.visible = popAng > 0.85 && f.userData.on; };
   const animPop = (dt) => {
     if (!popups.length || popAng === popTarget) return;
     popAng += Math.sign(popTarget - popAng) * Math.min(Math.abs(popTarget - popAng), dt / 0.7);
-    const e = popAng * popAng * (3 - 2 * popAng);
-    for (const p of popups) { p.hinge.rotation.x = -e * Math.PI * 0.5; p.parts.forEach(o => o.visible = popAng > 0.02); }
+    setPop();
   };
 
   const drop = (RIDE_HEIGHTS.find(h => h.id === (dress.height || 0)) || RIDE_HEIGHTS[0]).drop;
   body.position.y = -drop;
-  if (popups.length && opts.headlights) { popTarget = 1; popAng = 0.999; animPop(1); }
+  if (popups.length) { popAng = popTarget = opts.headlights ? 1 : 0; setPop(); }
 
   return {
     root, body, wheels, lights, paintMat, dims: { len, wid, hgt, R, fz, rz }, glb: true,
