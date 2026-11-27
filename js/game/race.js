@@ -256,7 +256,7 @@ export class Race {
           car.veh.vx = car.veh.vz = 0; car.veh.r = 0;
           continue;
         }
-        car.veh.step(DT, ctl, { driftAssist: car.ai ? 0.9 : (this.def.highway ? Math.min(this.assist, 0.35) : this.assist), autoGear: car.ai || car.finished ? true : this.autoGear, stable: car.ai ? 2.5 : 0, highway: !!this.def.highway });
+        car.veh.step(DT, ctl, { driftAssist: car.ai ? 0.9 : (this.def.highway ? Math.min(this.assist, 0.35) : this.assist), autoGear: car.ai || car.finished ? true : this.autoGear, stable: car.ai ? 2.5 : 0, highway: !!this.def.highway, arcadeDrift: !car.ai && !car.finished && car.ctrl !== 'net' });
         const pr = this.surface(car);
         this.progress(car, pr);
         for (const e of car.veh.events) {

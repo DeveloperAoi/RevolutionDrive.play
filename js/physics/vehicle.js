@@ -41,8 +41,10 @@ export class Vehicle {
     this.pitch = 0; this.roll = 0; this.pitchV = 0; this.rollV = 0;
     this.slipFront = 0; this.slipRear = 0; this.wheelspin = 0; this.lockup = 0;
     this.driftAngle = 0; this.wheelRot = 0; this.wheelRotF = 0; this.wheelRotR = 0; this.limiterHit = 0;
-    this.surfaceGrip = 1; this.events = []; this.throttleIn = 0; this.load = 0; this.decel = 0;
+    this.surfaceGrip = 1; this.dState = false; this.dDir = 0; this.dExit = 0; this.dTime = 0; this.events = []; this.throttleIn = 0; this.load = 0; this.decel = 0;
   }
+
+  enterDrift(dir) { this.dState = true; this.dDir = dir; this.dExit = 0; this.dTime = 0; }
 
   get speed() { return Math.hypot(this.vx, this.vz); }
   get kmh() { return this.speed * 3.6; }
@@ -209,11 +211,61 @@ export class Vehicle {
     const Fy = -FyD; let Mz = -tD;
     const fr = { sn: Math.abs(aF) / 0.12 }, rr = { sn: Math.abs(aR) / 0.12 };
     const ab = Math.abs(betaD);
+    // ---- ARCADE DRIFT STATE (Drift Legends style) ---------------------------------------------
+    // Once the car is sliding, the slide is *controlled* instead of left to raw tyre physics:
+    //   steer into the drift → more angle, neutral → angle eases off, counter-steer → straighten,
+    //   throttle holds the angle & speed, handbrake deepens it. The car carves the corner at the
+    //   grip limit and keeps most of its speed. No snap-back, no spontaneous re-slides.
+    const AD = !!opts.arcadeDrift && this.gear > 0 && u > 0;
+    if (AD && !this.dState && u > 7) {
+      const st = this.steerIn, fast = speed > 15;
+      if (hb && Math.abs(st) > 0.15) this.enterDrift(Math.sign(st));
+      else if (brake > 0.35 && Math.abs(st) > 0.6 && fast) this.enterDrift(Math.sign(st));
+      else if (Math.abs(beta) > 0.13) this.enterDrift(Math.sign(beta));
+      else if (throttle > 0.85 && Math.abs(st) > 0.75 && split < 1 && Math.abs(beta) > 0.06 && Math.sign(beta) === Math.sign(st) && e.hp / (m / 1000) > 150) this.enterDrift(Math.sign(st));
+    }
+    if (!AD) this.dState = false;
+    let axB, ayB;
+    if (this.dState) {
+      const d = this.dDir, sIn = this.steerIn * d; // + into the drift, − counter-steer
+      this.dTime += dt;
+      const ang = (s.driftAngle || 1) * (HWY ? 0.6 : 1);
+      let bt = (sIn > 0.08 ? 0.12 + sIn * 0.62 + (throttle - 0.5) * 0.16 : 0) + (hb ? 0.22 : 0) - (brake > 0.5 && !hb ? 0.08 : 0);
+      bt = Math.max(0, Math.min(0.9 * ang, bt * ang)) * Math.min(1, Math.max(0.3, (speed - 5) / 10));
+      const bb = beta * d;
+      const muA = (muF + muR) * 0.5 * hwG;
+      const aMax = muA * G * 0.95;
+      // velocity direction swings toward the heading at the grip limit
+      const dphi = -Math.sign(beta) * Math.min(2.4 * Math.abs(beta), aMax / Math.max(speed, 5));
+      const kB = hb ? 4 : 2.8;
+      const rDes = dphi - d * kB * (bt - bb);
+      this.r += (rDes - this.r) * Math.min(1, dt * 7);
+      // speed: drive (less effective at big angles) − slide scrub − brakes − drag
+      const driveA = throttle > 0 && !hb ? Math.min(Taxle / R, muR * Fzr * 0.9 + (split > 0 ? muF * Fzf * 0.5 : 0)) / m : Math.min(0, Taxle / R / m);
+      const scrub = G * mu * 0.17 * Math.abs(Math.sin(beta)) * (hb ? 2.2 : 1);
+      const brkA = brake * brakeMax / m * 0.75;
+      let spd = speed + dt * (driveA * (0.5 + 0.5 * Math.cos(beta)) - scrub - brkA - (0.013 * G + this.cda * speed * speed / m));
+      spd = Math.max(0, spd);
+      const nb = beta + (dphi - this.r) * dt;
+      u = spd * Math.cos(nb); v = spd * Math.sin(nb);
+      axB = (spd - speed) / dt; ayB = spd * dphi;
+      this.spinR = hb ? 0 : Math.min(0.5, throttle * 0.35 * (1 - split)); this.spinF = split > 0 ? throttle * 0.1 : 0;
+      this.wF = u / R; this.wR = hb ? 0 : spd / R * (1 + this.spinR * 0.5);
+      // exit: straightened out, too slow, or crossed over (switch-back when counter-steering hard)
+      if (Math.abs(nb) < 0.06 && bt < 0.13) this.dExit += dt; else this.dExit = 0;
+      if ((this.dExit > 0.05 || nb * d < 0.02) && sIn < -0.45 && throttle > 0.4 && spd > 12) { this.enterDrift(-d); } // manji / feint into the next corner
+      else if (this.dExit > 0.12 || spd < 6 || throttle < 0.05 && brake < 0.05 && bb < 0.05 && this.dTime > 0.4) {
+        this.dState = false; v *= 0.5; this.r = u * Math.tan(delta) / L * 0.8 + this.r * 0.2;
+      } else if (nb * d < -0.04) {
+        this.dState = false; v *= 0.4; this.r *= 0.3;
+      }
+    } else {
+      axB = Fx / m; ayB = Fy / m;
+      u += (axB + v * this.r) * dt;
+      v += (ayB - u * this.r) * dt;
+      this.r += (Mz / this.inertia) * dt;
+    }
     // ---- integrate --------------------------------------------------------------------------
-    const axB = Fx / m, ayB = Fy / m;
-    u += (axB + v * this.r) * dt;
-    v += (ayB - u * this.r) * dt;
-    this.r += (Mz / this.inertia) * dt;
     if (Math.abs(u) < 2.5) { // low speed: kinematic blend (no jitter when parking)
       const k = 1 - Math.abs(u) / 2.5;
       this.r += (u * Math.tan(delta) / L - this.r) * k * Math.min(1, dt * 12);
@@ -232,7 +284,7 @@ export class Vehicle {
 
     // ---- telemetry for HUD / audio / visuals --------------------------------------------------
     this.slipFront = Math.min(1, Math.max(0, fr.sn - 1.05) * 0.5);
-    this.slipRear = Math.min(1, Math.max(0, rr.sn - 1.05) * 0.5);
+    this.slipRear = this.dState ? Math.min(1, Math.abs(Math.atan2(v, Math.abs(u))) * 1.8 + (hb ? 0.4 : 0)) : Math.min(1, Math.max(0, rr.sn - 1.05) * 0.5);
     this.wheelspin = Math.min(1, Math.max(split < 1 ? this.spinR : 0, split > 0 ? this.spinF : 0) * 1.4);
     this.lockup = hb && Math.abs(u) > 2 ? 1 : 0;
     this.driftAngle = speed > 5 ? beta : 0;
@@ -271,6 +323,7 @@ export class Vehicle {
     const u = this.vx * sy + this.vz * cy; const R = this.spec.tire.radius;
     this.wF = u / R; if (impact > 4) this.wR = u / R;
     if (impact > 1.5) this.events.push({ type: 'hit', impact });
+    if (impact > 2.5) this.dState = false; // a real hit ends the drift
     return impact;
   }
 }
