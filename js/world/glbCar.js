@@ -184,7 +184,8 @@ export function createGlbCar(spec, dress, opts = {}) {
     root, body, wheels, lights, paintMat, dims: { len, wid, hgt, R, fz, rz }, glb: true,
     setBrake(v) { tailMat.emissiveIntensity = 0.9 + v * 3.5; tailFlareMat.opacity = 0.45 + v * 0.55; tailFlares.forEach(f => f.scale.set(0.7 + v * 0.8, 0.5 + v * 0.4, 1)); },
     setGhost() {
-      root.traverse(o => { if (o.material && !o.isSprite) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.35; o.material.depthWrite = false; } });
+      const gh = (mt) => { const c = mt.clone(); c.transparent = true; c.opacity = 0.35; c.depthWrite = false; return c; };
+      root.traverse(o => { if (o.material && !o.isSprite) o.material = Array.isArray(o.material) ? o.material.map(gh) : gh(o.material); }); // hull meshes use material arrays
       shadow.visible = false;
     },
     pose(v, surf) {

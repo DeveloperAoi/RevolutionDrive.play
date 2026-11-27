@@ -7,6 +7,7 @@ import { WHEEL_DESIGNS, normalizeCar } from '../data/custom.js';
 import * as TX from './textures.js';
 import { createGlbCar, packReady } from './glbCar.js';
 import { mountAero } from './aeroParts.js';
+import { packWheel } from './wheelPack.js';
 
 // normalised side profiles: x from rear (-0.5) to front (+0.5), y as fraction of body height
 const PROFILES = {
@@ -42,6 +43,75 @@ const PROFILES = {
   luxSedan: { lower: [[-0.5, 0.31], [-0.5, 0.56], [-0.485, 0.635], [-0.36, 0.655], [0.25, 0.625], [0.465, 0.565], [0.5, 0.47], [0.5, 0.31]], cabin: [[-0.355, 0.645], [-0.215, 0.975], [0.075, 0.995], [0.255, 0.615]], doors: 4 },
   rallySedan2: { lower: [[-0.5, 0.30], [-0.5, 0.56], [-0.47, 0.62], [-0.28, 0.63], [0.30, 0.59], [0.46, 0.51], [0.5, 0.42], [0.5, 0.30]], cabin: [[-0.30, 0.62], [-0.17, 0.97], [0.12, 0.99], [0.30, 0.60]] },
 };
+
+// ---- low-poly lofted hull ------------------------------------------------------------------
+// Cross-section rings along the car (rear → front), flat-shaded triangles. Lower body: 10-point ring with
+// tapered plan view, vertical sides, tumble-home shoulder and crowned deck/bonnet; wheel arches are cut by
+// lifting the body bottom over each wheel. Greenhouse: 6-point ring over the cabin span (glass sides and
+// screens, painted roof strip).
+function lowPolyHull(prof, o, paintMat, glass, black) {
+  const { len, wid, hgt, Y0, R, fz, rz, roadster, yAt } = o;
+  const L = prof.lower, xs = new Set();
+  for (const p of L) xs.add(Math.max(-0.5, Math.min(0.5, p[0])));
+  for (const c of prof.cabin) xs.add(c[0]);
+  for (const wz of [fz, rz]) for (const d of [-1.12, -0.82, -0.42, 0, 0.42, 0.82, 1.12]) xs.add((wz + d * R) / len);
+  for (const x of [-0.5, -0.46, -0.38, 0.38, 0.47, 0.5]) xs.add(x);
+  const X = [...xs].filter(x => x >= -0.5 && x <= 0.5).sort((a, b) => a - b).filter((x, i, a) => i === 0 || x - a[i - 1] > 0.004);
+  const yBot = (xn) => { // underside, lifted into polygonal arches over the wheels
+    let y = Y0 + 0.16 * hgt;
+    for (const wz of [fz, rz]) { const d = Math.abs(xn * len - wz) / R; if (d < 1.14) y = Math.max(y, d < 0.5 ? 2 * R + 0.05 : d < 0.86 ? 1.78 * R + 0.04 : 1.25 * R); }
+    return y;
+  };
+  const taper = (xn) => { // plan-view half width as a fraction of wid/2 (narrow nose / tail, chamfered corners)
+    const r = xn < -0.36 ? 0.86 + (xn + 0.5) / 0.14 * 0.14 : xn > 0.36 ? 1 - (xn - 0.36) / 0.14 * 0.17 : 1;
+    return Math.min(1, r);
+  };
+  const ring = (xn) => {
+    const z = xn * len, hw = wid / 2 * taper(xn), yt = yAt(xn), yb = Math.min(yBot(xn), yt - 0.06);
+    const ysh = yb + (yt - yb) * 0.62, ycr = yt + 0.012 * hgt;
+    // left side bottom → top → right side (x positive = left in car frame is fine: symmetric)
+    return [[-hw * 0.9, yb, z], [-hw, yb + 0.04, z], [-hw, ysh, z], [-hw * 0.93, yt - 0.015, z], [-hw * 0.55, ycr, z],
+            [hw * 0.55, ycr, z], [hw * 0.93, yt - 0.015, z], [hw, ysh, z], [hw, yb + 0.04, z], [hw * 0.9, yb, z]];
+  };
+  const pos = [], groups = [[], [], []]; // 0 paint · 1 glass · 2 black
+  const tri = (g, a, b, c) => groups[g].push(a, b, c);
+  const quad = (g, a, b, c, d) => { tri(g, a, b, c); tri(g, a, c, d); };
+  const rings = X.map(ring);
+  for (let i = 0; i < rings.length - 1; i++) {
+    const A = rings[i], B = rings[i + 1], n = A.length;
+    for (let j = 0; j < n; j++) { const k = (j + 1) % n; quad(j === n - 1 ? 2 : 0, A[j], B[j], B[k], A[k]); }
+  }
+  // end caps (rear / front faces)
+  for (const [Rg, flip] of [[rings[0], true], [rings[rings.length - 1], false]]) {
+    const c = [0, (Rg[2][1] + Rg[4][1]) / 2, Rg[0][2]];
+    for (let j = 0; j < Rg.length; j++) { const k = (j + 1) % Rg.length; if (flip) tri(0, c, Rg[k], Rg[j]); else tri(0, c, Rg[j], Rg[k]); }
+  }
+  // greenhouse
+  if (!roadster) {
+    const C = prof.cabin; const cx = [C[0][0], ...C.slice(1, -1).map(p => p[0]), C[C.length - 1][0]];
+    const roofY = (xn) => { for (let i = 1; i < C.length; i++) if (xn <= C[i][0] + 1e-6) { const t = (xn - C[i - 1][0]) / ((C[i][0] - C[i - 1][0]) || 1); return Y0 + (C[i - 1][1] + (C[i][1] - C[i - 1][1]) * t) * hgt; } return Y0 + C[C.length - 1][1] * hgt; };
+    const gx = [...new Set([...cx, (cx[1] + cx[2]) / 2])].sort((a, b) => a - b);
+    const gring = (xn) => { const z = xn * len, hw = wid / 2 * taper(xn), yb = yAt(xn) - 0.01, yr = Math.max(yb, roofY(xn));
+      const k = (yr - yb) / Math.max(0.01, hgt * 0.35); const wb = hw * 0.9, wr = hw * (0.9 - 0.3 * Math.min(1, k));
+      return [[-wb, yb, z], [-wr, yr - 0.02 * Math.min(1, k), z], [-wr * 0.82, yr, z], [wr * 0.82, yr, z], [wr, yr - 0.02 * Math.min(1, k), z], [wb, yb, z]]; };
+    const G = gx.map(gring);
+    for (let i = 0; i < G.length - 1; i++) {
+      const A = G[i], B = G[i + 1];
+      const screen = i === 0 || i === G.length - 2;          // rear window / windscreen strips
+      quad(1, A[0], B[0], B[1], A[1]); quad(1, A[4], B[4], B[5], A[5]);   // side glass
+      quad(0, A[1], B[1], B[2], A[2]); quad(0, A[3], B[3], B[4], A[4]);   // roof rails (paint)
+      quad(screen ? 1 : 0, A[2], B[2], B[3], A[3]);                       // roof / screens
+    }
+  }
+  const geo = new THREE.BufferGeometry(); const all = [];
+  groups.forEach((g, gi) => { geo.addGroup(all.length / 3, g.length, gi); for (const v of g) all.push(v[0], v[1], v[2]); });
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(all, 3));
+  geo.computeVertexNormals();
+  const ds = (mt) => { const c = mt.clone(); c.side = THREE.DoubleSide; return c; };
+  const glassLP = new THREE.MeshStandardMaterial({ color: 0x141b24, metalness: 0.7, roughness: 0.12, envMap: glass.envMap || null, envMapIntensity: 1.3, side: THREE.DoubleSide });
+  const m = new THREE.Mesh(geo, [ds(paintMat), glassLP, black]); m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
 
 let envMap = null;
 export function setEnvMap(e) { envMap = e; }
@@ -122,6 +192,7 @@ export function paintMaterial(hex, finish = 'metallic') {
 // ---- wheels -----------------------------------------------------------------------
 export function wheelBuild(cfg, R, W, tireLook = 'normal') {
   const des = WHEEL_DESIGNS.find(d => d.id === cfg.design) || WHEEL_DESIGNS[0];
+  if (des.pack) { const pw = packWheel(des.pack, cfg, R, W, tireLook, envMap); if (pw) return { group: pw, rimR: R * 0.72 }; }
   const g = new THREE.Group();
   const inch = cfg.size || 16;
   const rimR = R * (0.52 + (inch - 15) * 0.065);
@@ -227,32 +298,22 @@ export function createCar(spec, dressIn = {}, opts = {}) {
   const carbonMat = new THREE.MeshStandardMaterial({ map: TX.carbonTexture(), roughness: 0.25, metalness: 0.45, envMap });
   const bk = blackMat();
 
-  const archs = [{ x: fz, cy: R, r: R + 0.06 }, { x: rz, cy: R, r: R + 0.06 }];
-  const lower = new THREE.Mesh(extrude(profileShape(prof.lower, len, hgt, archs), wid, 0.09, 4), paintMat);
-  lower.position.y = 0.06; body.add(lower);
-  const Y0 = lower.position.y;
+  // ---- LOW-POLY HULL: lofted, faceted body built from the model's side silhouette (PROFILES) ----
+  const Y0 = 0.06;
   const yAt = (xn) => { // body top height at normalised x along the lower profile
-    const P = prof.lower; for (let i = 1; i < P.length; i++) if (xn <= P[i][0]) { const t = (xn - P[i - 1][0]) / ((P[i][0] - P[i - 1][0]) || 1); return Y0 + (P[i - 1][1] + (P[i][1] - P[i - 1][1]) * t) * hgt; } return Y0 + P[P.length - 1][1] * hgt;
+    const P = prof.lower; for (let i = 1; i < P.length; i++) if (xn <= P[i][0]) { const t = (xn - P[i - 1][0]) / ((P[i][0] - P[i - 1][0]) || 1); return Y0 + (P[i - 1][1] + (P[i][1] - P[i - 1][1]) * t) * hgt; }
+    return Y0 + P[P.length - 1][1] * hgt;
   };
-
-  // cabin
-  const cabinPts = prof.cabin.map(([x, y]) => [x * len, y * hgt]);
-  const cs = new THREE.Shape(); cs.moveTo(cabinPts[0][0], cabinPts[0][1] - 0.04);
-  for (const p of cabinPts) cs.lineTo(p[0], p[1]);
-  cs.lineTo(cabinPts[cabinPts.length - 1][0], cabinPts[cabinPts.length - 1][1] - 0.04); cs.closePath();
   const cabinW = wid * (b.style === 'roadster' ? 0.86 : 0.80);
-  const cabin = new THREE.Mesh(extrude(cs, cabinW, 0.05, 2), glassMat()); cabin.position.y = Y0; body.add(cabin);
-  if (b.style !== 'roadster') {
-    const rp = prof.cabin.slice(1, 3).map(([x, y]) => [x * len, y * hgt]);
-    const rs = new THREE.Shape(); rs.moveTo(rp[0][0] - 0.06, rp[0][1] - 0.06); rs.lineTo(rp[0][0], rp[0][1] + 0.012); rs.lineTo(rp[1][0], rp[1][1] + 0.012); rs.lineTo(rp[1][0] + 0.06, rp[1][1] - 0.06); rs.closePath();
-    const roof = new THREE.Mesh(extrude(rs, cabinW * 0.96, 0.04, 2), paintMat); roof.position.y = Y0; body.add(roof);
-  } else {
+  const hull = lowPolyHull(prof, { len, wid, hgt, Y0, R, fz, rz, roadster: b.style === 'roadster', yAt }, paintMat, glassMat(), bk);
+  body.add(hull);
+  if (b.style === 'roadster') {
     const hoop = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.03, 6, 12, Math.PI), chromeMat()); hoop.position.set(0, Y0 + 0.66 * hgt, -0.22 * len); body.add(hoop);
     const seat = new THREE.Mesh(new THREE.BoxGeometry(cabinW * 0.8, 0.35, 0.5), bk); seat.position.set(0, Y0 + 0.62 * hgt, -0.08 * len); body.add(seat);
   }
 
   // lights, grille, plates, mirrors
-  const frontZ = len / 2 + 0.072, rearZ = -len / 2 - 0.072; // bevel grows the extruded outline by ~7cm
+  const frontZ = len / 2 + 0.012, rearZ = -len / 2 - 0.012; // low-poly hull ends exactly at ±len/2
   const lit = !!(opts.headlights || opts.flares);
   const headMat = new THREE.MeshStandardMaterial({ color: lit ? 0xffffff : 0xd8dde4, emissive: 0xfff4dd, emissiveIntensity: lit ? 2.2 : 0.12, roughness: 0.08, metalness: lit ? 0 : 0.5, envMap });
   const tailMat = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0xff1010, emissiveIntensity: 0.9, roughness: 0.3 });
@@ -325,12 +386,6 @@ export function createCar(spec, dressIn = {}, opts = {}) {
     const bz = four ? C[1][0] + (C[2][0] - C[1][0]) * 0.52 : C[1][0] + (C[2][0] - C[1][0]) * 0.18;
     for (const sd of [-1, 1]) {
       const x = sd * xs;
-      seg(C[3][0], C[3][1], C[2][0], C[2][1] + 0.01, x, 0.035, 0.07, paintMat);          // A pillar
-      seg(C[0][0] + 0.05, C[0][1], C[1][0] + 0.03, C[1][1] - 0.02, x, 0.035, four ? 0.13 : 0.17, paintMat); // C pillar (wide)
-      seg(C[1][0], C[1][1] - 0.012, C[2][0], C[2][1] - 0.012, x, 0.03, 0.035, trimMat);   // upper window frame
-      seg(C[0][0], C[0][1] + 0.012, C[3][0], C[3][1] + 0.012, x + sd * 0.004, 0.02, 0.022, four ? chrome : trimMat); // beltline moulding
-      seg(bz, C[0][1], bz, C[1][1] + (C[2][1] - C[1][1]) * 0.5, x, 0.03, 0.075, trimMat);  // B pillar (black, sash style)
-      if (four) seg(bz - 0.42, C[0][1] + 0.02, bz - 0.42, C[1][1] - 0.04, x, 0.025, 0.035, trimMat); // rear quarter divider
       // door seams on the body side
       const xw = sd * (wid / 2 + 0.002), yb = Y0 + 0.2 * hgt;
       const seams = four ? [C[3][0] - 0.05, bz, C[0][0] + 0.18] : [C[3][0] - 0.05, bz - 0.05];
@@ -343,11 +398,7 @@ export function createCar(spec, dressIn = {}, opts = {}) {
       // side marker lamp on the front fender
       const mk = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.025, 0.07), new THREE.MeshStandardMaterial({ color: 0xff9a1a, emissive: 0x441800, roughness: 0.2 }));
       mk.position.set(sd * (wid / 2 + 0.004), Y0 + 0.45 * hgt, fz + R + 0.15); body.add(mk);
-      // wiper arms
-      if (sd > 0) for (const wx of [-0.18, 0.28]) seg(C[3][0] - 0.02, C[3][1] + 0.01, C[3][0] - 0.12, C[3][1] + 0.06, wx * cabinW, 0.015, 0.012, bk).rotation.y = 0.0;
     }
-    // roof drip rails / antenna
-    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.006, 0.4, 4), bk); ant.position.set(-cabinW * 0.35, C[1][1] + 0.18, C[1][0] + 0.05); ant.rotation.x = -0.4; body.add(ant);
   }
   // headlight reflector housings (chrome behind the lens) + clear lens look
   for (const sd of [-1, 1]) {
@@ -472,7 +523,8 @@ export function createCar(spec, dressIn = {}, opts = {}) {
     root, body, wheels, lights, paintMat, dims: { len, wid, hgt, R, fz, rz },
     setBrake(v) { tailMat.emissiveIntensity = 0.9 + v * 3.5; tailFlareMat.opacity = 0.45 + v * 0.55; tailFlares.forEach(f => f.scale.set(0.7 + v * 0.8, 0.5 + v * 0.4, 1)); },
     setGhost() {
-      root.traverse(o => { if (o.material && !o.isSprite) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.35; o.material.depthWrite = false; } });
+      const gh = (mt) => { const c = mt.clone(); c.transparent = true; c.opacity = 0.35; c.depthWrite = false; return c; };
+      root.traverse(o => { if (o.material && !o.isSprite) o.material = Array.isArray(o.material) ? o.material.map(gh) : gh(o.material); }); // hull meshes use material arrays
       shadow.visible = false;
     },
     pose(v, surf) {

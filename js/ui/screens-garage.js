@@ -499,9 +499,16 @@ function hubIcon(k) {
 const turboOOK = (ok, id) => (!ok && id ? 'ターボ車専用パーツ' : 'この車種には装着不可');
 
 // 2D wheel painter for thumbnails
+const wheelImgs = {};
 export function paintWheel(cv, cfg) {
   const g = cv.getContext('2d'); const W = cv.width, cx = W / 2, R = W * 0.46;
   const des = WHEEL_DESIGNS.find(d => d.id === cfg.design) || WHEEL_DESIGNS[0];
+  if (des.img) { // model-pack wheel: rendered thumbnail, tinted toward the chosen rim colour
+    const im = wheelImgs[des.img] || (wheelImgs[des.img] = Object.assign(new Image(), { src: des.img }));
+    const draw = () => { g.clearRect(0, 0, W, W); g.drawImage(im, 0, 0, W, W); if (cfg.color && cfg.color !== '#c9ccd0') { g.globalCompositeOperation = 'source-atop'; g.globalAlpha = 0.45; g.fillStyle = cfg.color; g.beginPath(); g.arc(cx, cx, R * 0.74, 0, 7); g.fill(); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; } };
+    if (im.complete && im.naturalWidth) draw(); else im.addEventListener('load', draw, { once: true });
+    return;
+  }
   const rim = R * (0.52 + ((cfg.size || 16) - 15) * 0.065) / 0.9 * 0.86;
   g.clearRect(0, 0, W, W);
   g.beginPath(); g.arc(cx, cx, R, 0, 7); g.fillStyle = '#151515'; g.fill();

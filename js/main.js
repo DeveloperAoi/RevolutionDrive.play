@@ -16,6 +16,7 @@ import './ui/screens-acc.js';
 import './ui/screens-dev.js';
 import { preloadPacks } from './data/glbcars.js';
 import { loadAeroParts, onAeroReady } from './world/aeroParts.js';
+import { loadWheelPack, onWheelPackReady } from './world/wheelPack.js';
 
 export async function goFullscreen() {
   try { const el = document.documentElement; if (!document.fullscreenElement && el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' }); } catch { /* iOS Safari: not supported */ }
@@ -29,6 +30,9 @@ function boot() {
   App.applySettings();
   preloadPacks();
   loadAeroParts();
+  setTimeout(loadWheelPack, 2500); // 5.8 MB — loaded in the background after start-up
+  const redrawCur = () => { try { const c = UI.current; if (c && typeof c.redraw === 'function') c.redraw(); else if (c && c.preview) c.preview(); } catch (e) { /* screen not ready */ } };
+  onWheelPackReady(redrawCur);
   onAeroReady(() => { try { const c = UI.current; if (c && typeof c.redraw === 'function') c.redraw(); else if (c && c.id === 'store' && c.preview) c.preview(); } catch (e) { /* screen not ready */ } });
   Save.on(() => refreshSync());
   // first user gesture unlocks audio (browser autoplay policy)

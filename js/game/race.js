@@ -38,6 +38,7 @@ export class Race {
     this.hud = cfg.hud || null;
     this.autoGear = cfg.settings?.autoGear ?? true;
     this.assist = (cfg.settings?.assist ?? 6) / 10;
+    this.easyDrift = cfg.settings?.easyDrift ?? 1; // 0 OFF · 1 LIGHT · 2 FULL
 
     // spawn
     const grid = [];
@@ -256,7 +257,21 @@ export class Race {
           car.veh.vx = car.veh.vz = 0; car.veh.r = 0;
           continue;
         }
-        car.veh.step(DT, ctl, { driftAssist: car.ai ? 0.9 : (this.def.highway ? Math.min(this.assist, 0.35) : this.assist), autoGear: car.ai || car.finished ? true : this.autoGear, stable: car.ai ? 2.5 : 0, highway: !!this.def.highway });
+        // EASY DRIFT auto kick (player, touge only): steering hard into a corner on the throttle at speed while the car
+        // is still gripping → a short automatic handbrake tap starts the drift (Drift Legends' auto-sidebrake idea)
+        let easyK = 0;
+        if (car.ctrl === 'player' && !car.ai && !car.finished && !this.def.highway && running) {
+          easyK = [0, 0.5, 1][this.easyDrift] || 0;
+          const vv = car.veh, ab = Math.abs(vv.beta || 0);
+          if (easyK > 0) {
+            car.kickCd = Math.max(0, (car.kickCd || 0) - DT); car.kickOn = Math.max(0, (car.kickOn || 0) - DT);
+            const want = Math.abs(ctl.steer) > (easyK >= 1 ? 0.6 : 0.8) && ctl.throttle > 0.4 && vv.speed > 11 && ab < 0.12 && !ctl.brake;
+            car.kickHold = want ? (car.kickHold || 0) + DT : 0;
+            if (car.kickHold > (easyK >= 1 ? 0.12 : 0.22) && car.kickCd <= 0) { car.kickOn = easyK >= 1 ? 0.2 : 0.14; car.kickCd = 1.2; car.kickHold = 0; }
+            if (car.kickOn > 0) ctl = { ...ctl, handbrake: true };
+          }
+        }
+        car.veh.step(DT, ctl, { driftAssist: car.ai ? 0.9 : (this.def.highway ? Math.min(this.assist, 0.35) : this.assist), autoGear: car.ai || car.finished ? true : this.autoGear, stable: car.ai ? 2.5 : 0, highway: !!this.def.highway, easyDrift: easyK });
         const pr = this.surface(car);
         this.progress(car, pr);
         for (const e of car.veh.events) {

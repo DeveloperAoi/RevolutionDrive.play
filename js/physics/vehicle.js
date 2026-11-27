@@ -107,7 +107,8 @@ export class Vehicle {
 
   step(dt, input, opts = {}) {
     const s = this.spec, e = s.engine, m = s.mass, R = s.tire.radius;
-    const assist = opts.driftAssist ?? 0.6;
+    const easy = opts.easyDrift || 0;                                   // RD EASY DRIFT (0..1) — extra assist on top of DL's
+    const assist = Math.min(1, (opts.driftAssist ?? 0.6) + easy * 0.4);
     const auto = opts.autoGear ?? true;
     let throttle = clamp(input.throttle, 0, 1), brake = clamp(input.brake, 0, 1);
 
@@ -232,6 +233,13 @@ export class Vehicle {
     const yawDamp = S.yawDamp + (HWY ? 0.06 + spd * 0.004 : 0);
     let torque = S.a * (FxF * sd + FyF * cd) - S.b * FyR - yawDamp * m * rDL * 0.4;
     if (assist > 0 && spd > 4) torque += assist * m * 9 * (beta - clamp(beta, -0.62, 0.62)) - (Math.abs(beta) > 0.7 ? assist * rDL * S.I * 0.6 : 0);
+    if (easy > 0 && spd > 6 && vx > 0) {
+      // EASY DRIFT: anti-spin — the angle limit closes in from 0.62 to ~0.5 rad (≈50°→30°) and pushes back harder
+      const cap = 0.62 - 0.12 * easy;
+      torque += easy * m * 14 * (beta - clamp(beta, -cap, cap));
+      // speed keep: while sideways on the throttle, part of the tyre scrub is given back along the heading
+      if (Math.abs(beta) > 0.18 && throttle > 0.3 && this.gear > 0) Fx += easy * m * 2.6 * throttle * Math.min(1, Math.abs(Math.sin(beta)) * 1.6);
+    }
     // 空気抵抗・転がり
     const dragFx = -this.cda * spd * vx - S.roll * vx * 0.02 - Math.sign(vx) * Math.min(Math.abs(vx) * 30, S.roll * 9.0);
     const dragFy = -this.cda * spd * vy;

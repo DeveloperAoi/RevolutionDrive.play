@@ -74,6 +74,7 @@ UI.register({
       ['BGM VOLUME', 'slider', 'bgm'], ['SE VOLUME', 'slider', 'sfx'], ['GUIDE SE (0=OFF)', 'slider', 'guideSe'],
       ['TRANSMISSION', s.autoGear ? 'AT オートマ' : 'MT マニュアル', 'autoGear'],
       ['DRIFT ASSIST', 'slider', 'assist'],
+      ['EASY DRIFT', ['OFF', 'LIGHT 少しアシスト', 'FULL 簡単ドリフト'][s.easyDrift ?? 1], 'easyDrift'],
       ['CAMERA', ['CHASE', 'FAR', 'BUMPER'][s.camera], 'camera'],
       ['TOUCH CONTROLS', { auto: 'AUTO', on: 'ON', off: 'OFF' }[s.touch], 'touch'],
       ['TOUCH STEERING', { button: 'ボタン', slide: 'スライド', tilt: '傾き(ジャイロ)' }[s.touchSteer || 'button'], 'touchSteer'],
@@ -95,6 +96,7 @@ UI.register({
     const s = App.settings; const k = this.rows()[this.i]?.[2]; if (!k) return;
     if (k === 'bgm' || k === 'sfx' || k === 'assist' || k === 'guideSe') { s[k] = Math.max(0, Math.min(10, (s[k] ?? 7) + d)); if (k === 'guideSe') setTimeout(() => Audio.guideSE('curve', 0), 50); }
     if (k === 'autoGear') s.autoGear = !s.autoGear;
+    if (k === 'easyDrift') s.easyDrift = ((s.easyDrift ?? 1) + d + 3) % 3;
     if (k === 'custTimer') s.custTimer = !s.custTimer;
     if (k === 'ghost') s.ghost = s.ghost === false;
     if (k === 'lineGuide') s.lineGuide = !s.lineGuide;
