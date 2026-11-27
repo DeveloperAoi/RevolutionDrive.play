@@ -881,3 +881,25 @@ body.tiny .af-keys { transform: scale(1.7) !important; }
 /* timer warning pulse */
 .bigtimer.warn, .st-time.warn, .timer.warn { animation: inPop .5s ease-out infinite alternate; }
 @media (prefers-reduced-motion: reduce) { .screen.active * { animation: none !important; } }
+
+/* ---- HIGHWAY HUD ---- */
+.rh-hw { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.rh.hwmode .rh-meter, .rh.hwmode .rh-gearbox, .rh.hwmode .rh-in, .rh.hwmode .rh-sign, .rh.hwmode .rh-slope { display: none !important; }
+.hw-top { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); display: flex; align-items: stretch; gap: 0; filter: drop-shadow(0 4px 10px rgba(0,0,0,.6)); }
+.hw-top > div { padding: 6px 22px; background: linear-gradient(180deg, rgba(10,16,30,.85), rgba(4,8,16,.85)); border-top: 3px solid #36c3ff; }
+.hw-crs b { display: block; font-size: 24px; font-style: italic; color: #fff; letter-spacing: 2px; } .hw-crs span { font-family: var(--jp); font-size: 15px; color: #9cf; }
+.hw-dist { text-align: center; border-left: 1px solid #234; border-right: 1px solid #234; } .hw-dist small { display: block; font-size: 13px; color: #9cf; letter-spacing: 3px; } .hw-dist b { font-size: 44px; font-style: italic; color: #fff; } .hw-dist i { font-size: 18px; color: #9cf; margin-left: 4px; }
+.hw-bat { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 190px; } .hw-bat span { font-size: 15px; letter-spacing: 3px; padding: 0 10px; font-style: italic; } .hw-bat .lead { background: #36c3ff; color: #001; } .hw-bat .chase { background: #ff3b3b; color: #fff; } .hw-bat .ta { background: #ffd400; color: #111; }
+.hw-bat b { font-size: 34px; font-style: italic; color: #fff; } .hw-bat small { font-family: var(--jp); font-size: 14px; color: #ccc; }
+.hw-meter { position: absolute; right: 36px; bottom: 34px; width: 560px; height: 250px; padding: 20px 28px; background: linear-gradient(135deg, rgba(6,10,20,.82), rgba(14,22,40,.66)); border: 2px solid rgba(54,195,255,.55); border-radius: 18px 4px 18px 4px; box-shadow: 0 0 30px rgba(54,195,255,.25), inset 0 0 30px rgba(54,195,255,.12); }
+.hw-tach { position: relative; height: 26px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 10px, transparent 10px 14px); border: 1px solid rgba(255,255,255,.25); }
+.hw-tach i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: repeating-linear-gradient(90deg, #36c3ff 0 10px, transparent 10px 14px); box-shadow: 0 0 12px #36c3ff; }
+.hw-tach.red i { background: repeating-linear-gradient(90deg, #ff3b3b 0 10px, transparent 10px 14px); box-shadow: 0 0 14px #ff3b3b; }
+.hw-tach .rl { position: absolute; top: -6px; bottom: -6px; width: 3px; background: #ff3b3b; }
+.hw-rpm { position: absolute; left: 30px; top: 58px; } .hw-rpm b { font-size: 34px; font-style: italic; color: #9cf; } .hw-rpm small { margin-left: 6px; font-size: 14px; color: #9cf; }
+.hw-spd { position: absolute; right: 30px; top: 40px; text-align: right; } .hw-spd b { font-size: 150px; line-height: 1; font-style: italic; color: #fff; text-shadow: 0 0 18px rgba(54,195,255,.7); font-variant-numeric: tabular-nums; } .hw-spd small { display: block; margin-top: -8px; font-size: 24px; color: #9cf; font-style: italic; }
+.hw-gear { position: absolute; left: 30px; top: 104px; width: 100px; height: 100px; border: 3px solid #36c3ff; border-radius: 12px; display: grid; place-items: center; align-content: center; background: rgba(0,0,0,.4); } .hw-gear small { font-size: 12px; color: #9cf; letter-spacing: 2px; } .hw-gear b { font-size: 60px; line-height: 1; font-style: italic; color: #ffd400; }
+.hw-boost { position: absolute; left: 150px; bottom: 26px; width: 170px; } .hw-boost small { font-size: 12px; color: #9cf; letter-spacing: 2px; } .hw-boost div { height: 14px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.06); } .hw-boost i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #36c3ff, #ffd400, #ff3b3b); }
+body.compact .hw-spd b { font-size: 170px; }
+
+.rh.hwmode .rh-toggles { bottom: 300px !important; top: auto !important; }

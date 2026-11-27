@@ -243,3 +243,43 @@ export function treeTexture(kind = 'cedar') {
   }
   const t = tex(c); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.repeat.set(1, 1); return (cache[key] = t);
 }
+
+// expressway asphalt: 3 lanes, dashed lane lines, solid edge lines, darker smoother surface
+export function highwayRoadTexture(wet = false) {
+  const key = 'hroad' + wet; if (cache[key]) return cache[key];
+  const [c, g] = canvas(512, 1024); const r = rand(11);
+  g.fillStyle = wet ? '#202226' : '#2c2e32'; g.fillRect(0, 0, 512, 1024);
+  const img = g.getImageData(0, 0, 512, 1024), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { const n = (r() - 0.5) * 22; d[i] += n; d[i + 1] += n; d[i + 2] += n * 1.05; }
+  g.putImageData(img, 0, 0);
+  g.fillStyle = 'rgba(0,0,0,0.18)'; [0.16, 0.26, 0.4, 0.5, 0.6, 0.74, 0.84].forEach(u => g.fillRect(u * 512 - 14, 0, 28, 1024));
+  g.fillStyle = 'rgba(80,82,88,0.25)'; for (let i = 0; i < 10; i++) g.fillRect(0, r() * 1024, 512, 3); // expansion joints
+  g.fillStyle = '#e6e6e0'; g.fillRect(10, 0, 12, 1024); g.fillRect(490, 0, 12, 1024);
+  for (const u of [1 / 3, 2 / 3]) g.fillRect(u * 512 - 5, 0, 10, 400);
+  g.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 700; i++) { g.fillStyle = `rgba(0,0,0,${r() * 0.45})`; g.fillRect(r() * 512, r() * 1024, 2 + r() * 4, 2 + r() * 4); }
+  g.globalCompositeOperation = 'source-over';
+  const [c2, g2] = canvas(512, 1024); g2.fillStyle = wet ? '#202226' : '#2c2e32'; g2.fillRect(0, 0, 512, 1024); g2.drawImage(c, 0, 0);
+  return (cache[key] = tex(c2));
+}
+// office tower facade with lit windows (night) — tinted per instance
+export function buildingTexture(seed = 1) {
+  const key = 'bld' + seed; if (cache[key]) return cache[key];
+  const [c, g] = canvas(256, 512); const r = rand(seed * 17 + 3);
+  g.fillStyle = '#15171c'; g.fillRect(0, 0, 256, 512);
+  const cols = 14, rows = 48, cw = 256 / cols, rh = 512 / rows;
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const lit = r() < 0.42; const warm = r() < 0.6;
+    g.fillStyle = lit ? (warm ? `rgba(255,${200 + r() * 40},${120 + r() * 60},${0.7 + r() * 0.3})` : `rgba(${180 + r() * 40},${220 + r() * 30},255,${0.6 + r() * 0.3})`) : `rgba(40,46,58,${0.6 + r() * 0.3})`;
+    g.fillRect(x * cw + 2, y * rh + 2, cw - 4, rh - 4);
+  }
+  const t = tex(c); return (cache[key] = t);
+}
+export function skylineTexture() {
+  const key = 'skyline'; if (cache[key]) return cache[key];
+  const [c, g] = canvas(2048, 256); const r = rand(5);
+  g.clearRect(0, 0, 2048, 256);
+  let x = 0; while (x < 2048) { const w = 20 + r() * 70, h = 40 + r() * 190; g.fillStyle = `rgb(${10 + r() * 12},${12 + r() * 14},${22 + r() * 18})`; g.fillRect(x, 256 - h, w, h);
+    for (let k = 0; k < h * w / 90; k++) { if (r() < 0.5) { g.fillStyle = r() < 0.7 ? 'rgba(255,214,150,.85)' : 'rgba(190,225,255,.8)'; g.fillRect(x + 2 + r() * (w - 4), 256 - h + 4 + r() * (h - 8), 2, 2); } }
+    if (r() < 0.3) { g.fillStyle = '#ff3030'; g.fillRect(x + w / 2, 256 - h - 3, 3, 3); } x += w + r() * 6; }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; return (cache[key] = t);
+}

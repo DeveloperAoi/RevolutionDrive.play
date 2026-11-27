@@ -28,13 +28,14 @@ export function buildWorld(track, opts = {}) {
   const wet = weather === 'rain';
   const root = new THREE.Group();
   const lampsOn = time.lamps;
+  const HW = !!def.highway;
 
   // ---- lamp light field (CPU) -------------------------------------------
   const lampPts = track.lamps.map(L => {
     const i = L.i, hw = track.w[i] / 2;
     if (L.tunnel) return { x: track.x[i], y: track.y[i] + 5.5, z: track.z[i], tunnel: true, side: 0, i };
-    const d = L.side * (hw + 1.2);
-    return { x: track.x[i] + track.nx[i] * d, y: track.y[i] + 8, z: track.z[i] + track.nz[i] * d, side: L.side, i };
+    const d = L.side * (hw + (HW ? 0.4 : 1.2));
+    return { x: track.x[i] + track.nx[i] * d, y: track.y[i] + (HW ? 10 : 8), z: track.z[i] + track.nz[i] * d, side: L.side, i };
   });
   const lampGrid = new Map(); const LC = 40;
   for (const p of lampPts) { const k = Math.floor(p.x / LC) + ',' + Math.floor(p.z / LC); (lampGrid.get(k) || lampGrid.set(k, []).get(k)).push(p); }
@@ -103,9 +104,9 @@ export function buildWorld(track, opts = {}) {
   };
 
   // ---- road --------------------------------------------------------------
-  const roadTex = TX.roadTexture(wet);
+  const roadTex = HW ? TX.highwayRoadTexture(wet) : TX.roadTexture(wet);
   const roadMat = lampify(new THREE.MeshStandardMaterial({
-    map: roadTex, roughness: wet ? 0.28 : 0.86, metalness: wet ? 0.15 : 0.0, roughnessMap: TX.roughTexture(),
+    map: roadTex, roughness: wet ? 0.28 : HW ? 0.62 : 0.86, metalness: wet ? 0.15 : HW ? 0.08 : 0.0, roughnessMap: TX.roughTexture(),
     color: wet ? 0x8a8c90 : 0xffffff,
   }), 1.0);
   const crown = (d, hw) => -0.04 * (d / hw) ** 2;
@@ -161,12 +162,12 @@ export function buildWorld(track, opts = {}) {
     return side < 0 ? out.reverse() : out;
   };
   const isTunnel = (i) => track.flags[i].tunnel;
-  for (const side of [-1, 1]) {
+  if (!HW) for (const side of [-1, 1]) {
     // near wall/rock face only on the mountain side (first 3 columns) uses rock material
     ribbon(i => isTunnel(i) ? null : terrainCols(i, side), 30, terrainMat);
   }
   // concrete retaining walls on the mountain side
-  ribbon(i => {
+  if (!HW) ribbon(i => {
     if (isTunnel(i)) return null;
     const side = sideOf(i); const hw = track.w[i] / 2 + 1.6;
     const b = track.bank[i];
@@ -216,7 +217,7 @@ export function buildWorld(track, opts = {}) {
   const postGeo = new THREE.BoxGeometry(0.12, 0.85, 0.12);
   const postMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.6, roughness: 0.5 });
   const posts = [];
-  for (const side of [-1, 1]) {
+  for (const side of HW ? [] : [-1, 1]) {
     ribbon(i => {
       if (isTunnel(i)) return null;
       const hw = track.w[i] / 2 + 1.5, b = track.bank[i];
@@ -261,13 +262,14 @@ export function buildWorld(track, opts = {}) {
   const q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), v3 = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   street.forEach((p, k) => {
     const i = p.i, hw = track.w[i] / 2;
-    const base = new THREE.Vector3(track.x[i] + track.nx[i] * p.side * (hw + 2.2), track.y[i] - 0.1, track.z[i] + track.nz[i] * p.side * (hw + 2.2));
+    const PO = HW ? 1.5 : 2.2, PH = HW ? 1.25 : 1;
+    const base = new THREE.Vector3(track.x[i] + track.nx[i] * p.side * (hw + PO), track.y[i] - 0.1, track.z[i] + track.nz[i] * p.side * (hw + PO));
     const yaw = Math.atan2(-track.nx[i] * p.side, -track.nz[i] * p.side);
     q.setFromAxisAngle(up, yaw);
-    m4.compose(v3.set(base.x, base.y + 4, base.z), q, sc); poleI.setMatrixAt(k, m4);
-    m4.compose(v3.set(base.x - track.nx[i] * p.side * 1.0, base.y + 7.95, base.z - track.nz[i] * p.side * 1.0), q, sc); armI.setMatrixAt(k, m4);
-    m4.compose(v3.set(p.x, base.y + 7.85, p.z), q, sc); headI.setMatrixAt(k, m4);
-    const s = new THREE.Sprite(glowMat); s.position.set(p.x, base.y + 7.6, p.z); s.scale.set(5, 5, 1); root.add(s);
+    m4.compose(v3.set(base.x, base.y + 4 * PH, base.z), q, sc.set(1, PH, 1)); poleI.setMatrixAt(k, m4); sc.set(1, 1, 1);
+    m4.compose(v3.set(base.x - track.nx[i] * p.side * 1.0, base.y + 7.95 * PH, base.z - track.nz[i] * p.side * 1.0), q, sc); armI.setMatrixAt(k, m4);
+    m4.compose(v3.set(p.x, base.y + 7.85 * PH, p.z), q, sc); headI.setMatrixAt(k, m4);
+    const s = new THREE.Sprite(glowMat); s.position.set(p.x, base.y + 7.6 * PH, p.z); s.scale.set(HW ? 4 : 5, HW ? 4 : 5, 1); root.add(s);
   });
   tunL.forEach((p, k) => {
     const i = p.i; q.setFromAxisAngle(up, Math.atan2(track.tx[i], track.tz[i]));
@@ -294,7 +296,7 @@ export function buildWorld(track, opts = {}) {
   }
 
   // ---- trees (instanced) ----------------------------------------------------
-  const treeCount = def.terrain === 'ridge' ? 500 : 1500;
+  const treeCount = HW ? 0 : def.terrain === 'ridge' ? 500 : 1500;
   const trunks = [], crowns = [];
   const rr = mulberry(def.id.length * 97 + 13);
   for (let t = 0; t < treeCount * 3 && crowns.length < treeCount; t++) {
@@ -401,13 +403,16 @@ export function buildWorld(track, opts = {}) {
       const w = 500 + cr() * 700; c.scale.set(w, w * (0.32 + cr() * 0.15), 1); skyGroup.add(c);
     }
   }
+  if (HW) { // city skyline all around instead of mountains
+    for (const [rad, hh, y, rep] of [[2400, 520, 120, 3], [1900, 380, 60, 4]]) { const m = new THREE.MeshBasicMaterial({ map: TX.skylineTexture().clone(), transparent: true, side: THREE.BackSide, fog: false, depthWrite: false }); m.map.repeat.set(rep, 1); m.map.needsUpdate = true; const ring = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad, hh, 64, 1, true), m); ring.position.y = y; skyGroup.add(ring); }
+  }
   const tone = T === 'dusk' ? ['#3a2038', '#1c1024'] : T === 'day' ? (wet ? ['#4a5560', '#3a444c'] : ['#6f8aa0', '#4f6b78']) : ['#0b1226', '#050913'];
-  skyGroup.add(ring(2500, 900, tone[0], 2, 150), ring(2000, 700, tone[1], 3, 80));
+  if (!HW) skyGroup.add(ring(2500, 900, tone[0], 2, 150), ring(2000, 700, tone[1], 3, 80));
   root.add(skyGroup);
 
   // valley floor
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshStandardMaterial({ color: T === 'dusk' ? 0x1a1820 : T === 'day' ? 0x2c3d28 : 0x05070a, roughness: 1 }));
-  floor.rotation.x = -Math.PI / 2; floor.position.set((track.bounds.minX + track.bounds.maxX) / 2, track.bounds.minY - 90, (track.bounds.minZ + track.bounds.maxZ) / 2);
+  floor.rotation.x = -Math.PI / 2; floor.position.set((track.bounds.minX + track.bounds.maxX) / 2, track.bounds.minY - (HW ? 14 : 90), (track.bounds.minZ + track.bounds.maxZ) / 2);
   root.add(floor);
 
   // ---- course-specific landmark detail (lake, summit lodge, utility poles, gutters, hairpin boards) ----
@@ -541,6 +546,66 @@ export function buildWorld(track, opts = {}) {
       bd.position.set(track.x[ia] + track.nx[ia] * side * hw, track.y[ia] + 2.6, track.z[ia] + track.nz[ia] * side * hw);
       bd.lookAt(track.x[track.idx(ia - 20)], track.y[ia] + 2.6, track.z[track.idx(ia - 20)]); root.add(bd);
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.2, 5), new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.6 })); post.position.copy(bd.position).add(new THREE.Vector3(0, -1.5, 0)); root.add(post);
+    }
+  }
+
+  // ---- expressway: parapets, sound walls, piers, city blocks, overhead signs ----
+  if (HW) {
+    const ground = track.bounds.minY - 14;
+    const conc = lampify(new THREE.MeshStandardMaterial({ color: 0xa8aaa6, roughness: 0.85, map: TX.gravelTexture() }), 1.0);
+    // concrete parapet walls (instead of guardrails) with a reflector line
+    for (const side of [-1, 1]) {
+      ribbon(i => { if (isTunnel(i)) return null; const hw = track.w[i] / 2 + 1.2, b = track.bank[i], e = side * hw, y0 = e * b - 0.05;
+        const pts = [{ d: e, h: y0, u: 0 }, { d: e + side * 0.05, h: y0 + 0.95, u: 0.5 }, { d: e + side * 0.35, h: y0 + 1.0, u: 0.7 }, { d: e + side * 0.4, h: y0 - 1.6, u: 1 }];
+        return side > 0 ? pts : pts.reverse(); }, 6, conc);
+    }
+    // translucent sound walls on long stretches
+    const swMat = new THREE.MeshStandardMaterial({ color: 0x9ab8c8, transparent: true, opacity: 0.35, roughness: 0.15, metalness: 0.3, side: THREE.DoubleSide, depthWrite: false });
+    for (const side of [-1, 1]) ribbon(i => { if (isTunnel(i) || Math.sin(track.s[i] / 300 + side) < 0.1) return null; const hw = track.w[i] / 2 + 1.42, e = side * hw, y0 = e * track.bank[i] + 0.95;
+      const pts = [{ d: e, h: y0, u: 0 }, { d: e, h: y0 + 3.2, u: 1 }]; return side > 0 ? pts : pts.reverse(); }, 4, swMat);
+    // deck underside + piers down to the ground
+    const deckMat = new THREE.MeshStandardMaterial({ color: 0x6a6c6a, roughness: 0.9 });
+    ribbon(i => { if (isTunnel(i)) return null; const hw = track.w[i] / 2 + 1.6; return [{ d: hw, h: -1.6, u: 0 }, { d: -hw, h: -1.6, u: 1 }]; }, 10, deckMat);
+    const pierGeo = new THREE.BoxGeometry(2.2, 1, 2.2), capGeo = new THREE.BoxGeometry(1, 1.2, 2.6);
+    const piers = [], caps = [];
+    for (let i = 0; i < track.n; i += 18) { if (isTunnel(i)) continue; const h = track.y[i] - 1.6 - ground; if (h < 2) continue; piers.push([track.x[i], ground + h / 2, track.z[i], h, Math.atan2(track.tx[i], track.tz[i]), track.w[i] + 3]); }
+    const pI = new THREE.InstancedMesh(pierGeo, deckMat, Math.max(1, piers.length)), cI = new THREE.InstancedMesh(capGeo, deckMat, Math.max(1, piers.length));
+    piers.forEach((p, k) => { q.setFromAxisAngle(up, p[4]); m4.compose(v3.set(p[0], p[1], p[2]), q, sc.set(1, p[3], 1)); pI.setMatrixAt(k, m4); m4.compose(v3.set(p[0], p[1] + p[3] / 2 - 0.6, p[2]), q, sc.set(p[5], 1, 1)); cI.setMatrixAt(k, m4); });
+    pI.count = cI.count = piers.length; sc.set(1, 1, 1); root.add(pI, cI);
+    // city blocks: instanced towers with lit-window facades, kept clear of the road
+    const bGeo = new THREE.BoxGeometry(1, 1, 1); bGeo.translate(0, 0.5, 0);
+    const towers = [[], [], []]; const br = mulberry(def.id.length * 131);
+    for (let k = 0; k < 900; k++) {
+      const i = Math.floor(br() * track.n); if (isTunnel(i)) continue;
+      const side = br() < 0.5 ? -1 : 1, dist = track.w[i] / 2 + 45 + br() * 280;
+      const x = track.x[i] + track.nx[i] * side * dist, z = track.z[i] + track.nz[i] * side * dist;
+      const j = track.nearest(x, z); if (Math.hypot(track.x[j] - x, track.z[j] - z) < track.w[j] / 2 + 38) continue;
+      const w = 14 + br() * 26, d = 14 + br() * 26, h = 18 + Math.pow(br(), 1.6) * 150;
+      towers[k % 3].push([x, ground, z, w, h, d, br() * 6.28]);
+    }
+    towers.forEach((list, v) => {
+      if (!list.length) return;
+      const t = TX.buildingTexture(v + 1).clone(); t.needsUpdate = true;
+      const mat = new THREE.MeshStandardMaterial({ map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: T === 'day' ? 0.05 : 0.9, color: T === 'day' ? 0x9aa4b0 : 0x5a606a, roughness: 0.4, metalness: 0.5 });
+      const I = new THREE.InstancedMesh(bGeo, mat, list.length);
+      list.forEach((b, k) => { q.setFromAxisAngle(up, b[6]); m4.compose(v3.set(b[0], b[1], b[2]), q, sc.set(b[3], b[4], b[5])); I.setMatrixAt(k, m4); });
+      sc.set(1, 1, 1); root.add(I);
+    });
+    // aircraft warning lights on the tallest towers
+    const warn = [].concat(...towers).filter(b => b[4] > 110);
+    if (warn.length && T !== 'day') { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(warn.flatMap(b => [b[0], b[1] + b[4] + 1, b[2]]), 3)); root.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xff2020, size: 5, sizeAttenuation: false }))); }
+    // overhead sign gantries (original destinations)
+    const dests = [['湾岸線', 'BAYSHORE RT'], ['臨港', 'PORT AREA 2km'], ['都心環状', 'C-RING'], ['空港', 'AIRPORT 5km'], ['新港JCT', 'SHINKO JCT']];
+    const gm = new THREE.MeshStandardMaterial({ color: 0x8a8e94, metalness: 0.7, roughness: 0.4 });
+    let gk = 0;
+    for (let s0 = 400; s0 < track.length - 100; s0 += 650) {
+      const p = track.pointAt(s0); if (isTunnel(p.i)) continue; const hw = track.w[p.i] / 2 + 1.4;
+      const gGroup = new THREE.Group(); gGroup.position.set(p.x, track.y[p.i], p.z); gGroup.rotation.y = p.yaw; root.add(gGroup);
+      for (const sd of [-1, 1]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.35, 7.2, 0.35), gm); post.position.set(sd * hw, 3.6, 0); gGroup.add(post); }
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(hw * 2, 0.4, 0.4), gm); beam.position.y = 7; gGroup.add(beam);
+      const [jp, en] = dests[gk++ % dests.length]; const st = TX.signTexture(jp, en, '#0d6a3a');
+      const board = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 3.0), new THREE.MeshStandardMaterial({ map: st, emissive: 0xffffff, emissiveMap: st, emissiveIntensity: 0.35, side: THREE.DoubleSide })); board.position.set(hw * 0.35, 5.6, -0.25); board.rotation.y = Math.PI; gGroup.add(board);
+      const b2 = board.clone(); b2.material = b2.material.clone(); const st2 = TX.signTexture(['出口', 'EXIT'][0], ['', 'EXIT 1km'][1], '#0d6a3a'); b2.material.map = st2; b2.material.emissiveMap = st2; b2.position.x = -hw * 0.45; b2.scale.set(0.7, 1, 1); gGroup.add(b2);
     }
   }
 

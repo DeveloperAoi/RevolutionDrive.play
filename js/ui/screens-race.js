@@ -38,6 +38,8 @@ UI.register({
         <div class="rh-toggles"><div class="rh-tg rh-tg-ghost"><span class="k">G</span>ゴースト<b>ON</b></div><div class="rh-tg rh-tg-line"><span class="k">L</span>ラインガイド<b>OFF</b></div></div>
         <div class="rh-warn">WRONG WAY — R でコース復帰</div>
       </div>
+      <div class="rh-hw"><div class="hw-top"><div class="hw-crs"></div><div class="hw-dist"><small>DISTANCE</small><b>0.00</b><i>km</i></div><div class="hw-bat"></div></div>
+        <div class="hw-meter"><div class="hw-tach"><i></i><span class="rl"></span></div><div class="hw-rpm"><b>0</b><small>x1000 rpm</small></div><div class="hw-spd"><b>0</b><small>km/h</small></div><div class="hw-gear"><small>GEAR</small><b>N</b></div><div class="hw-boost"><small>BOOST</small><div><i></i></div></div></div></div>
       <div class="rh-story"></div><div class="rh-line"></div><div class="rh-cup"></div>
       <div class="hud-msg"></div>
       <div class="touch">
@@ -126,6 +128,10 @@ UI.register({
     const f = params.story ? findEpisode(params.story.epId) : null;
     S.innerHTML = ''; Ln.className = 'rh-line'; S.style.display = f ? '' : 'none';
     if (f) S.innerHTML = `<div class="cd"><div class="h">クリア条件</div><div class="t">${esc(condText(f.ep))}</div></div><div class="rv"><div class="tg">Target</div><div class="pt">${portraitSVG(f.ep.rival.p, 110, 'hud' + f.ep.id)}</div><div class="nm">${esc(f.ep.rival.name)}</div><div class="gp">--</div></div>`;
+    // HIGHWAY HUD (digital speedometer, bar tachometer, gear, boost, distance, battle status)
+    const HWH = $('.rh-hw', this.el), hw = !!race.def.highway; $('.rh', this.el).classList.toggle('hwmode', hw); HWH.style.display = hw ? '' : 'none';
+    if (hw) $('.hw-crs', HWH).innerHTML = `<b>${esc(race.def.name)}</b><span>${esc(race.def.jp)} · ${esc(race.def.dirs[race.cfg.dir || 'fwd'][1])}</span>`;
+    const hwq = (c) => HWH.querySelector(c);
     const cupIt = accById(Save.profile.acc?.eq?.cup);
     Cup.style.display = cupIt ? '' : 'none'; if (cupIt) Cup.innerHTML = cupSVG(cupIt, 150);
     let lastLine = -1e9, marks = [0.12, 0.45, 0.8], shown = 0, prevAhead = null, slosh = 0, sloshV = 0;
@@ -142,6 +148,17 @@ UI.register({
         else if (prevAhead !== null && ahead !== prevAhead && race.clock - lastLine > 6) say(pickL(ahead ? 'behind' : 'ahead'));
         prevAhead = ahead;
         if (race.clock - lastLine > 3.5) Ln.classList.remove('on');
+      }
+      if (hw && pl) {
+        const v = pl.veh, e = v.spec.engine, kmh = Math.round(v.kmh);
+        hwq('.hw-spd b').textContent = kmh; hwq('.hw-rpm b').textContent = (v.rpm / 1000).toFixed(1);
+        const fr = Math.min(1, v.rpm / e.limiter); hwq('.hw-tach i').style.width = (fr * 100) + '%'; hwq('.hw-tach').classList.toggle('red', v.rpm > e.redline * 0.97);
+        hwq('.hw-tach .rl').style.left = (e.redline / e.limiter * 100) + '%';
+        hwq('.hw-gear b').textContent = v.gear < 0 ? 'R' : v.gear === 0 ? 'N' : v.gear;
+        const bo = v.spec.sound.turbo ? Math.max(0, Math.min(1, v.boost || 0)) : 0; hwq('.hw-boost i').style.width = (bo * 100) + '%'; hwq('.hw-boost').style.opacity = v.spec.sound.turbo ? 1 : 0.35;
+        const left = Math.max(0, race.totalLen - pl.prog); hwq('.hw-dist b').textContent = (left / 1000).toFixed(2);
+        const rv = race.cars.find(c => c !== pl);
+        hwq('.hw-bat').innerHTML = rv ? (() => { const gap = pl.prog - rv.prog; return `<span class="${gap >= 0 ? 'lead' : 'chase'}">${gap >= 0 ? 'LEAD' : 'CHASE'}</span><b>${gap >= 0 ? '+' : '-'}${Math.abs(gap).toFixed(0)}m</b><small>${esc(rv.name || 'RIVAL')}</small>`; })() : `<span class="ta">TIME ATTACK</span><b>${fmt(race.raceTime)}</b>`;
       }
       if (cupIt && pl) { // liquid sloshes with lateral g
         const ay = pl.veh.ay || 0; sloshV += (-ay * 0.06 - slosh) * 0.25 - sloshV * 0.12; slosh += sloshV; const lq = Cup.querySelector('ellipse:nth-of-type(3)');

@@ -129,7 +129,22 @@ class AudioSys {
     const e = new EngineVoice(this, spec, volume, player, muffler);
     this.engines.add(e); return e;
   }
-  stopEngines() { for (const e of this.engines) e.stop(); this.engines.clear(); }
+  stopEngines() { for (const e of this.engines) e.stop(); this.engines.clear(); if (this.windG) { this.windG.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1); this.echoG.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1); } }
+  // driving ambience: wind roar rising with speed, and a short slap-back echo inside tunnels
+  environment(speed = 0, tunnel = false) {
+    const c = this.ctx; if (!c) return;
+    if (!this.windG) {
+      const n = this.noise(), bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q.value = 0.6; this.windF = bp;
+      this.windG = c.createGain(); this.windG.gain.value = 0; n.connect(bp).connect(this.windG).connect(this.sfx); n.start();
+      // tunnel echo: send from the sfx bus through a feedback delay
+      const d = c.createDelay(0.5); d.delayTime.value = 0.085; const fb = c.createGain(); fb.gain.value = 0.38; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
+      this.echoG = c.createGain(); this.echoG.gain.value = 0;
+      this.sfx.connect(this.echoG); this.echoG.connect(d); d.connect(lp).connect(fb).connect(d); lp.connect(this.master);
+    }
+    const t = c.currentTime, k = Math.min(1, speed / 85);
+    this.windG.gain.setTargetAtTime(k * k * 0.22, t, 0.2); this.windF.frequency.setTargetAtTime(350 + k * 1400, t, 0.2);
+    this.echoG.gain.setTargetAtTime(tunnel ? 0.42 : 0, t, tunnel ? 0.15 : 0.4);
+  }
 
   // ---- music --------------------------------------------------------------
   playMusic(name) {

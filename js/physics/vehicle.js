@@ -89,7 +89,7 @@ export class Vehicle {
     this.steerIn = (this.steerIn || 0) + Math.max(-sRate * dt, Math.min(sRate * dt, sTarget - (this.steerIn || 0)));
     if (input.analog) this.steerIn = sTarget;
     const steerMax = s.steerLock * 1.0;
-    const maxSteer = steerMax / (1 + Math.max(0, speed - 8) / 32) + 0.06;
+    const maxSteer = steerMax / (1 + Math.max(0, speed - 8) / (opts.highway ? 24 : 32)) + (opts.highway ? 0.035 : 0.06);
     let dDL = this.steerIn * maxSteer;
     if (assist > 0 && speed > 6 && u > 0) {
       const k = assist * Math.max(0, Math.min(1, (Math.abs(betaD) - 0.04) / 0.18));
@@ -161,10 +161,12 @@ export class Vehicle {
 
     // ---- Drift Legends tyre & body model ----------------------------------------------------------
     const sgn = u >= 0 ? 1 : -1;
-    const slide = Math.max(0.6, Math.min(0.92, 0.74 + (s.drive === 'FR' ? 0.04 : 0) + (s.drift || 0) * 0.002));
+    const slide = opts.highway ? 0.86 : Math.max(0.6, Math.min(0.92, 0.74 + (s.drive === 'FR' ? 0.04 : 0) + (s.drift || 0) * 0.002));
     const Cc = 2 - 2 * Math.asin(slide) / Math.PI, Bc = Math.tan(Math.PI / (2 * Cc)) / 0.12;
     const curve = (al) => (al < 0 ? -1 : 1) * Math.sin(Cc * Math.atan(Bc * Math.abs(al)));
-    const FmaxF = muF * Fzf, FmaxR = muR * 0.97 * Fzr;
+    // HIGHWAY handling: more grip & aero stability at speed, less willingness to slide
+    const HWY = !!opts.highway, hwG = HWY ? 1.1 + Math.min(0.12, speed * 0.0012) : 1;
+    const FmaxF = muF * Fzf * hwG, FmaxR = muR * (HWY ? 1.06 : 0.97) * Fzr * hwG;
     const cd = Math.cos(dDL), sd = Math.sin(dDL);
     const fLat = -u * sd + (vyD + rD0 * this.a) * cd, fLon = u * cd + (vyD + rD0 * this.a) * sd;
     const aF = Math.atan2(fLat, Math.max(Math.abs(fLon), 2.5));
@@ -199,7 +201,7 @@ export class Vehicle {
     // forces in the DL body frame (x forward, y right)
     let Fx = FxF * cd - FyF * sd + FxR;
     let FyD = FxF * sd + FyF * cd + FyR;
-    let tD = this.a * (FxF * sd + FyF * cd) - this.b * FyR - 0.1 * m * rD0 * 0.4;
+    let tD = this.a * (FxF * sd + FyF * cd) - this.b * FyR - (HWY ? 0.16 + speed * 0.004 : 0.1) * m * rD0 * 0.4;
     if (assist > 0 && speed > 4) tD += assist * m * 9 * (betaD - Math.max(-0.62, Math.min(0.62, betaD))) - (Math.abs(betaD) > 0.7 ? assist * rD0 * this.inertia * 0.6 : 0);
     const resist = Math.sign(u) * (0.013 * m * G + this.cda * u * u);
     Fx -= resist; FyD -= this.cda * speed * vyD;

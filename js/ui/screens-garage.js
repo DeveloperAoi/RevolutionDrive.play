@@ -73,10 +73,12 @@ function renderRow(row, items, sel, equipped, onPick) {
 
 // ───────────────────────── MODE SELECT ─────────────────────────
 const MODES = [
-  { id: 'trial', name: 'TIME TRIAL', sub: 'Time Trial', jp: 'タイムトライアル', desc: 'ひとりでコースを全開走行。自己ベストとゴーストに挑み、セクションタイムを削り取れ!', reward: 'クレジット / TP / 新記録ボーナス', grad: ['#2a6ad0', '#0a1838'], on: true, glyph: '⏱' },
+  { id: 'trial', name: 'TIME TRIAL', sub: 'Touge Time Trial', jp: '峠タイムアタック', desc: 'ひとりでコースを全開走行。自己ベストとゴーストに挑み、セクションタイムを削り取れ!', reward: 'クレジット / TP / 新記録ボーナス', grad: ['#2a6ad0', '#0a1838'], on: true, glyph: '⏱' },
   { id: 'special', name: 'SPECIAL', sub: 'Special', jp: 'スペシャル', desc: '期間限定のチャレンジイベント。指定の条件で目標タイムを切れば特別報酬!', reward: '高額クレジット / TP', grad: ['#9a2ad0', '#1a0a30'], on: true, glyph: '★' },
+  { id: 'hwtrial', name: 'HIGHWAY TIME ATTACK', sub: 'Highway Time Attack', jp: '高速タイムアタック', desc: '夜の都市高速を全開で走り抜けろ。300km/hの世界で、ライン取りと最高速がタイムを決める。一般車に注意!', reward: 'クレジット / TP / 新記録ボーナス', grad: ['#1a3ad0', '#020a24'], on: true, glyph: 'HW' },
+  { id: 'hwbattle', name: 'HIGHWAY BATTLE', sub: 'Highway Battle', jp: '高速バトル', desc: '湾岸と都心環状でライバルと1対1の高速バトル。一般車をかわしながら、ゴールまで先行しろ!', reward: '勝利ボーナス / TP', grad: ['#d0501a', '#2a0a02'], on: true, glyph: 'VS' },
   { id: 'story', name: 'STORY', sub: 'Single-Player', jp: 'ストーリー', desc: '各地の峠に君臨する走り屋たちが君を待ち受ける!SEASON 1「峠の目覚め」全16話。話をクリアするとチューニングポイントを獲得。', reward: 'Tune POINT / クレジット / ストーリーランク', grad: ['#d07a1a', '#301a06'], on: true, glyph: '章' },
-  { id: 'battle', name: 'COURSE BATTLE', sub: 'Course Battle', jp: 'コースバトル', desc: 'CPUライバルと1対1のバトル。難易度を選んで、峠の頂点を奪い取れ!', reward: '勝利ボーナス / TP', grad: ['#d01a2a', '#300608'], on: true, glyph: 'VS' },
+  { id: 'battle', name: 'COURSE BATTLE', sub: 'Touge Battle', jp: '峠バトル', desc: 'CPUライバルと1対1のバトル。難易度を選んで、峠の頂点を奪い取れ!', reward: '勝利ボーナス / TP', grad: ['#d01a2a', '#300608'], on: true, glyph: 'VS' },
   { id: 'local', name: 'LOCAL BATTLE', sub: 'Local Battle', jp: 'ローカルバトル', desc: '同じ端末・同じネットワーク内のプレイヤーと対戦。', reward: '—', grad: ['#1ab07a', '#062a1a'], on: false, glyph: 'LAN' },
   { id: 'online', name: 'ONLINE BATTLE', sub: 'Online Battle', jp: 'オンラインバトル', desc: 'CODE BATTLE(ルームコード対戦)と WORLDWIDE MATCH(世界マッチング)。', reward: 'オンラインRP', grad: ['#1a9ad0', '#06202e'], on: true, glyph: 'NET' },
   { id: 'garage', name: 'GARAGE', sub: 'Garage', jp: 'ガレージ', desc: '登録車両の切替・追加登録(最大5台)・ドレスアップ・ホイール・メーター・チューニング。', reward: '', grad: ['#8a8f98', '#16181c'], on: true, glyph: '⚙' },
@@ -135,7 +137,8 @@ UI.register({
       return bigTimer($('.m-tm', this.el), 60, () => this.pick(this.focus.i));
     }
     Audio.ui('ok');
-    if (m.id === 'trial' || m.id === 'battle') { App.pending.mode = m.id; App.pending.event = null; UI.go('course'); }
+    if (m.id === 'trial' || m.id === 'battle') { App.pending.mode = m.id; App.pending.world = 'touge'; App.pending.event = null; if ((courseById(App.pending.courseId).world || 'touge') !== 'touge') App.pending.courseId = 'akane'; UI.go('course'); }
+    else if (m.id === 'hwtrial' || m.id === 'hwbattle') { App.pending.mode = m.id === 'hwtrial' ? 'trial' : 'battle'; App.pending.world = 'highway'; App.pending.event = null; if (courseById(App.pending.courseId).world !== 'highway') App.pending.courseId = 'bayshore'; UI.go('course'); }
     else if (m.id === 'special') UI.go('special');
     else if (m.id === 'online') UI.go('online');
     else if (m.id === 'story') UI.go('story');
@@ -783,15 +786,16 @@ UI.register({
     const P = App.pending; this.p = P;
     $('.pp', this.el).innerHTML = plate(); $('.cbx', this.el).innerHTML = consoleBox();
     this.tracks = {};
+    const LIST = this.list = COURSES.filter(c => (c.world || 'touge') === (P.world || 'touge'));
     const strip = $('.c-strip', this.el);
-    strip.innerHTML = '<i class="mk l"></i>' + COURSES.map(c => { const locked = !Save.profile.unlocked.courses.includes(c.id); return `<div class="scard" style="background:${c.time === 'dusk' ? 'linear-gradient(180deg,#5a2a4a,#c06a3a)' : 'linear-gradient(180deg,#0a1430,#1a2a5a)'}"><canvas width="460" height="280" style="inset:4px 40px 46px;width:calc(100% - 80px);height:calc(100% - 50px)"></canvas><div class="lab" style="background:rgba(0,0,0,.55)">${c.jp}</div><div style="position:absolute;left:34px;top:6px;font-family:var(--jp);font-weight:900;font-size:15px;color:#ffd400">${['', '初級', '中級', '上級', '最上級', '伝説'][c.difficulty]}</div>${locked ? '<div class="tag" style="top:40px;background:#444;color:#ffd400">🔒 LOCKED</div>' : ''}</div>`; }).join('') + '<i class="mk r"></i>';
-    $$('.c-strip canvas', this.el).forEach((cv, k) => drawCourseMap(cv, this.track(COURSES[k].id, 'fwd'), { w: 6 }));
+    strip.innerHTML = '<i class="mk l"></i>' + LIST.map(c => { const locked = !Save.profile.unlocked.courses.includes(c.id); return `<div class="scard" style="background:${c.time === 'dusk' ? 'linear-gradient(180deg,#5a2a4a,#c06a3a)' : 'linear-gradient(180deg,#0a1430,#1a2a5a)'}"><canvas width="460" height="280" style="inset:4px 40px 46px;width:calc(100% - 80px);height:calc(100% - 50px)"></canvas><div class="lab" style="background:rgba(0,0,0,.55)">${c.jp}</div><div style="position:absolute;left:34px;top:6px;font-family:var(--jp);font-weight:900;font-size:15px;color:#ffd400">${['', '初級', '中級', '上級', '最上級', '伝説'][c.difficulty]}</div>${locked ? '<div class="tag" style="top:40px;background:#444;color:#ffd400">🔒 LOCKED</div>' : ''}</div>`; }).join('') + '<i class="mk r"></i>';
+    $$('.c-strip canvas', this.el).forEach((cv, k) => drawCourseMap(cv, this.track(LIST[k].id, 'fwd'), { w: 6 }));
     const cards = $$('.c-strip .scard', this.el);
-    const idx = Math.max(0, COURSES.findIndex(c => c.id === P.courseId));
+    const idx = Math.max(0, LIST.findIndex(c => c.id === P.courseId));
     this.zone = 'list'; this.optI = 0;
-    this.focus = new Focus(cards, { axis: 'h', index: idx, onChange: (i) => { P.courseId = COURSES[i].id; P.dir = 'fwd'; P.weather = null; P.time = null; this.show(); }, onSelect: () => this.go() });
+    this.focus = new Focus(cards, { axis: 'h', index: idx, onChange: (i) => { P.courseId = LIST[i].id; P.dir = 'fwd'; P.weather = null; P.time = null; this.show(); }, onSelect: () => this.go() });
     const ap = this.focus.apply.bind(this.focus); this.focus.apply = () => { ap(); cards.forEach((c, j) => c.classList.toggle('sel', j === this.focus.i)); }; this.focus.apply();
-    P.courseId = COURSES[idx].id; P.cpu ||= 'normal';
+    P.courseId = LIST[idx].id; P.cpu ||= 'normal';
     this.show();
     bigTimer($('.c-tm', this.el), 60, () => this.go(true));
   },
@@ -844,7 +848,7 @@ UI.register({
     const P = this.p; const c = courseById(P.courseId);
     if (!Save.profile.unlocked.courses.includes(c.id)) {
       Audio.ui('error');
-      if (timeout) { P.courseId = COURSES[0].id; } else { await dialog.alert('LOCKED', `${c.jp} は未解放です。<br>${c.unlock.text}`); return; }
+      if (timeout) { P.courseId = this.list[0].id; } else { await dialog.alert('LOCKED', `${c.jp} は未解放です。<br>${c.unlock.text}`); return; }
     }
     stopTimer(); Audio.ui('start');
     UI.go('race', { mode: P.mode, courseId: P.courseId, dir: P.dir, weather: P.weather || courseById(P.courseId).weather, time: P.time || courseById(P.courseId).time, cpu: CPU_LV.find(l => l.id === P.cpu), event: P.event });

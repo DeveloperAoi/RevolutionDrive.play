@@ -9,6 +9,7 @@ import { AIDriver } from './ai.js';
 import { Audio } from '../audio/audio.js';
 import { Input } from '../core/input.js';
 import { courseById } from '../data/courses.js';
+import { CARS, buildSpec } from '../data/cars.js';
 import { MUFFLERS } from '../data/cars.js';
 import { fmt, fmtDelta } from './hud.js';
 import { RaceHUD } from './racehud.js';
@@ -64,6 +65,19 @@ export class Race {
     });
     this.player = this.cars.find(c => c.ctrl === 'player') || null;
     this.focus = this.player || this.cars[0];
+    // highway traffic: kinematic cars cruising in their lanes (not on the grid, not in online races)
+    this.traffic = [];
+    if (this.def.highway && !cfg.net && !this.attract) {
+      const pool = CARS.filter(c => !c.model), cols = ['#f2f2ef', '#121316', '#a9adb3', '#1a4fbf', '#6a0f1a', '#4a4e55'];
+      const lanes = [-1, 0, 1].map(k => k * this.def.width / 3);
+      for (let k = 0; k < 12; k++) {
+        const base = pool[k % pool.length];
+        const model = createCar(buildSpec(base), { color: { hex: cols[k % cols.length], finish: 'metallic' } }, { flares: true });
+        model.root.traverse(o => { if (o.isMesh && !(o.material.isMeshBasicMaterial && o.material.transparent)) o.castShadow = true; });
+        this.scene.add(model.root);
+        this.traffic.push({ model, s: 140 + k * 170 + Math.random() * 60, lane: lanes[k % 3], v: (78 + Math.random() * 34) / 3.6, veh: { yaw: 0, pitch: 0, roll: 0, steer: 0, wheelRotF: 0, wheelRotR: 0, x: 0, z: 0 } });
+      }
+    }
 
     // ghost
     this.ghost = null;
@@ -242,7 +256,7 @@ export class Race {
           car.veh.vx = car.veh.vz = 0; car.veh.r = 0;
           continue;
         }
-        car.veh.step(DT, ctl, { driftAssist: car.ai ? 0.9 : this.assist, autoGear: car.ai || car.finished ? true : this.autoGear, stable: car.ai ? 2.5 : 0 });
+        car.veh.step(DT, ctl, { driftAssist: car.ai ? 0.9 : (this.def.highway ? Math.min(this.assist, 0.35) : this.assist), autoGear: car.ai || car.finished ? true : this.autoGear, stable: car.ai ? 2.5 : 0, highway: !!this.def.highway });
         const pr = this.surface(car);
         this.progress(car, pr);
         for (const e of car.veh.events) {
@@ -273,6 +287,8 @@ export class Race {
       if (car.engine) car.engine.update(car.veh, car.ctrl === 'player' && inp && running ? Math.max(inp.throttle, car.finished ? 0.3 : 0) : (car.ai || car.net ? 0.8 : 0), { dist, gravel: car.offroad });
     }
     if (running) this.fx.update(dt, this.cars, this.focus);
+    if (this.traffic.length) this.updateTraffic(dt, running);
+    if (this.focus && !this.attract) Audio.environment(running ? this.focus.veh.speed : 0, !!this.track.flags[this.focus.hint]?.tunnel);
     this.updateCamera(dt);
     this.world.update(this.camera, dt);
     if (this.world.shadowFollow && this.focus) this.world.shadowFollow(this.focus.model.root.position);
@@ -322,6 +338,31 @@ export class Race {
       // loop the demo: when the lead car nears the end restart it at the beginning
       for (const car of this.cars) if (car.finished || car.prog > this.totalLen - 30) { this.cfg.onDemoEnd && this.cfg.onDemoEnd(); break; }
     }
+  }
+
+  updateTraffic(dt, running) {
+    const t = this.track, ref = this.focus; const L = this.totalLen;
+    for (const c of this.traffic) {
+      if (running) c.s += c.v * dt;
+      // recycle: keep traffic around the focus car (ahead of it mostly)
+      const rel = c.s - (ref ? ref.prog % t.length : 0);
+      if (rel < -120) { c.s += 600 + Math.random() * 300; c.lane = [-1, 0, 1][Math.floor(Math.random() * 3)] * this.def.width / 3; }
+      if (!t.closed && c.s > t.length - 20) c.s = t.length - 20;
+      const p = t.pointAt(c.s, c.lane), q = t.pointAt(c.s + 2, c.lane);
+      c.veh.x = p.x; c.veh.z = p.z; c.veh.yaw = Math.atan2(q.x - p.x, q.z - p.z);
+      c.veh.wheelRotF += c.v / 0.31 * dt; c.veh.wheelRotR = c.veh.wheelRotF;
+      c.model.pose(c.veh, { y: p.y, pitch: 0, roll: 0 }); c.model.setBrake(0);
+      // contact with racers: push them aside and scrub speed
+      for (const car of this.cars) {
+        const v = car.veh, dx = v.x - p.x, dz = v.z - p.z, d = Math.hypot(dx, dz);
+        if (d < 2.3 && d > 0.01) {
+          const nx = dx / d, nz = dz / d, imp = Math.max(0, -(v.vx * nx + v.vz * nz) + c.v * 0.2);
+          v.x += nx * (2.3 - d); v.z += nz * (2.3 - d);
+          if (imp > 0) { v.vx += nx * imp * 1.2; v.vz += nz * imp * 1.2; v.vx *= 0.82; v.vz *= 0.82; if (car === this.focus && imp > 2) { Audio.crash(imp * 2); this.shake = Math.min(1, imp / 10) * (this.camShake || 0.6); } }
+        }
+      }
+    }
+    void L;
   }
 
   // online rival: kinematic car driven by the interpolated remote state

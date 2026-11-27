@@ -110,6 +110,7 @@ export class Track {
     let lastLamp = -999;
     for (let i = 0; i < M; i++) {
       const f = this.flags[i];
+      if (this.def.highway && !f.tunnel && this.s[i] - lastLamp > 38) { lastLamp = this.s[i]; this.lamps.push({ i, side: 1, tunnel: false }, { i, side: -1, tunnel: false }); continue; }
       if ((f.lamps || f.tunnel) && this.s[i] - lastLamp > (f.tunnel ? 16 : 42)) {
         lastLamp = this.s[i];
         this.lamps.push({ i, side: f.tunnel ? 0 : (i % 2 ? 1 : -1) * (this.def.mountainSide || 1) * -1, tunnel: f.tunnel });

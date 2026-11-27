@@ -160,6 +160,35 @@ export const COURSES = [
       { l: 120, a: 0, g: -0.02, lamps: true },
     ],
   },
+  {
+    id: 'bayshore', name: 'BAYSHORE ROUTE', jp: '湾岸ベイライン', sub: 'HIGHWAY', world: 'highway',
+    desc: '港湾地区を一直線に貫く高架の高速道路。300km/h超の最高速と、夜景の中の高速コーナーが勝負を決める。',
+    time: 'night', weather: 'clear', closed: false, laps: 1, width: 11.6, startY: 18,
+    difficulty: 3, terrain: 'city', mountainSide: 1, category: 'HIGHWAY', highway: true,
+    dirs: { fwd: ['EASTBOUND', '東行き'], rev: ['WESTBOUND', '西行き'] }, unlock: null,
+    features: ['超高速ロングストレート', '海底トンネル', '港湾の夜景'],
+    segs: [
+      { l: 420, a: 0, g: 0 }, { l: 380, a: 14, g: 0.004 }, { l: 600, a: 0, g: 0.002 }, { l: 320, a: -22, g: 0 },
+      { l: 500, a: 0, g: -0.004 }, { l: 260, a: 18, g: -0.01 },
+      { l: 900, a: -6, g: -0.025, tunnel: true }, { l: 300, a: 0, g: 0.03, tunnel: true },
+      { l: 420, a: 24, g: 0.012 }, { l: 700, a: 0, g: 0 }, { l: 340, a: -30, g: 0 }, { l: 380, a: 10, g: 0.003 },
+      { l: 800, a: 0, g: 0 }, { l: 300, a: 26, g: -0.004 }, { l: 560, a: -8, g: 0 }, { l: 400, a: 0, g: 0 },
+    ],
+  },
+  {
+    id: 'metro', name: 'METRO C-RING', jp: '都心環状ルート', sub: 'HIGHWAY', world: 'highway',
+    desc: 'ビルの谷間を縫う都心の環状高速。中速コーナーとトンネルが連続し、ライン取りとブレーキングが試される。',
+    time: 'night', weather: 'clear', closed: true, laps: 2, width: 10.4, startY: 26,
+    difficulty: 4, terrain: 'city', mountainSide: 1, category: 'HIGHWAY', highway: true,
+    dirs: { fwd: ['INNER LOOP', '内回り'], rev: ['OUTER LOOP', '外回り'] }, unlock: null,
+    features: ['ビルの谷間の連続コーナー', '地下トンネル区間', '2周バトル'],
+    segs: [
+      { l: 360, a: 0, g: 0 }, { l: 140, a: 62, g: 0.01 }, { l: 260, a: 0, g: 0.012 }, { l: 120, a: -38, g: 0 },
+      { l: 160, a: 54, g: -0.01 }, { l: 420, a: 6, g: -0.02, tunnel: true }, { l: 130, a: 70, g: 0.01, tunnel: true },
+      { l: 300, a: 0, g: 0.02 }, { l: 150, a: -45, g: 0 }, { l: 120, a: 72, g: 0 }, { l: 380, a: 0, g: -0.006 },
+      { l: 140, a: 58, g: -0.008 }, { l: 200, a: -20, g: 0 }, { l: 160, a: 61, g: 0 },
+    ],
+  },
 ];
 
 // Course categories prepared for future content: TOUGE, MOUNTAIN, CITY, NIGHT, RAIN, SNOW
