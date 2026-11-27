@@ -843,3 +843,41 @@ body.compact .rh-line .b { font-size: 42px; }
 body.compact .rh-story .cd .t { font-size: 32px; }
 body.compact .toast, body.compact #toast { font-size: 34px; }
 body.tiny .af-keys { transform: scale(1.7) !important; }
+
+/* ===================== UI motion pass ===================== */
+@keyframes inLeft { from { transform: translateX(-110%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes inRight { from { transform: translateX(60%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes inUp { from { transform: translateY(60px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes inDrop { from { transform: translateY(-40px) skewX(-12deg); opacity: 0; letter-spacing: 18px; } to { transform: none; opacity: 1; } }
+@keyframes inPop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes shine { 0% { transform: translateX(-130%) skewX(-20deg); } 60%, 100% { transform: translateX(260%) skewX(-20deg); } }
+@keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.screen.active .af-plate { animation: inLeft .45s cubic-bezier(.2,.9,.3,1) both; }
+.screen.active .af-console { animation: inLeft .45s cubic-bezier(.2,.9,.3,1) .12s both; }
+.screen.active .af-title .t { animation: inDrop .5s cubic-bezier(.2,.9,.3,1) .05s both; }
+.screen.active .bigtimer, .screen.active .st-time { animation: inPop .5s cubic-bezier(.2,.9,.3,1) .15s both; }
+.screen.active .af-keys { animation: inRight .45s cubic-bezier(.2,.9,.3,1) .2s both; }
+.screen.active .af-logo { animation: inRight .5s cubic-bezier(.2,.9,.3,1) .25s both; }
+.screen.active .hintbar { animation: inUp .4s ease-out .18s both; }
+.screen.active .hb-car { animation: inLeft .4s cubic-bezier(.2,.9,.3,1) both; }
+.screen.active .hb-car:nth-child(1) { animation-delay: .1s; } .screen.active .hb-car:nth-child(2) { animation-delay: .17s; } .screen.active .hb-car:nth-child(3) { animation-delay: .24s; }
+.screen.active .hb-strip, .screen.active .strip, .screen.active .ac-strip { animation: inUp .45s cubic-bezier(.2,.9,.3,1) .12s both; }
+.screen.active .scard, .screen.active .acard { animation: inUp .4s cubic-bezier(.2,.9,.3,1) both; }
+.screen.active .scard:nth-of-type(2), .screen.active .acard:nth-child(2) { animation-delay: .05s; } .screen.active .scard:nth-of-type(3), .screen.active .acard:nth-child(3) { animation-delay: .1s; } .screen.active .scard:nth-of-type(4), .screen.active .acard:nth-child(4) { animation-delay: .15s; } .screen.active .scard:nth-of-type(5), .screen.active .acard:nth-child(5) { animation-delay: .2s; } .screen.active .scard:nth-of-type(n+6) { animation-delay: .25s; }
+.screen.active .icard, .screen.active .ac-now, .screen.active .tn-left, .screen.active .nw-body { animation: inRight .45s cubic-bezier(.2,.9,.3,1) .1s both; }
+.screen.active .sph { animation: inPop .5s cubic-bezier(.2,.9,.3,1) both; } .screen.active .sph:nth-child(2) { animation-delay: .08s; } .screen.active .sph:nth-child(3) { animation-delay: .16s; } .screen.active .sph:nth-child(4) { animation-delay: .24s; }
+.screen.active .st-ports .pc { animation: inUp .4s ease-out both; } .screen.active .st-ports .pc:nth-child(2) { animation-delay: .06s; } .screen.active .st-ports .pc:nth-child(3) { animation-delay: .12s; } .screen.active .st-ports .pc:nth-child(4) { animation-delay: .18s; } .screen.active .st-ports .pc:nth-child(5) { animation-delay: .24s; }
+.screen.active .rw-it { animation: inUp .4s ease-out both; } .screen.active .rw-it:nth-child(2n) { animation-delay: .08s; } .screen.active .rw-it:nth-child(n+3) { animation-delay: .16s; }
+.screen.active .st-head, .screen.active .si-top { animation: inLeft .45s cubic-bezier(.2,.9,.3,1) both; }
+.sph.sel .ball { animation: floaty 2.4s ease-in-out infinite; }
+/* glossy light sweep on the selected card / tile */
+.hcard.sel::before, .scard.sel::before, .acard.sel::before, .mtile.sel::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; z-index: 3; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); animation: shine 2.2s ease-in-out infinite; }
+.hcard, .scard, .acard, .mtile { transition: left .25s cubic-bezier(.2,.9,.3,1), transform .2s cubic-bezier(.2,.9,.3,1), filter .2s; }
+.hcard:active, .scard:active, .acard:active, .mtile:active, .btn:active { transform: scale(.96) !important; filter: brightness(1.25); }
+/* richer screen wipe: double panel + flash */
+#wipe::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, rgba(255,240,200,.55), transparent 60%); opacity: 0; }
+#wipe.run::after { animation: wflash .7s ease-out .25s; }
+@keyframes wflash { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+/* timer warning pulse */
+.bigtimer.warn, .st-time.warn, .timer.warn { animation: inPop .5s ease-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) { .screen.active * { animation: none !important; } }
